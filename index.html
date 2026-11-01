@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QX: Open-Source Round QR Code with Signed Data</title>
+  <meta name="description" content="QX is an open-source round QR code. Any phone camera scans the QR core; the rings add signed time, GPS and serial data that survive scratches." />
+  <meta name="theme-color" content="#070a12" />
+  <link rel="canonical" href="https://qx.tapinhere.com/" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23070a12' stroke='%2338bdf8' stroke-width='2'/%3E%3Crect x='11' y='11' width='10' height='10' fill='%23f8fafc'/%3E%3C/svg%3E" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="QX" />
+  <meta property="og:title" content="QX: Open-Source Round QR Code with Signed Data" />
+  <meta property="og:description" content="A standard QR core any phone camera can scan, wrapped in rings that carry signed time, GPS and serial data and survive scratches." />
+  <meta property="og:url" content="https://qx.tapinhere.com/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="QX: Open-Source Round QR Code with Signed Data" />
+  <meta name="twitter:description" content="A standard QR core any phone camera can scan, wrapped in rings that carry signed time, GPS and serial data and survive scratches." />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "QX Studio",
+    "url": "https://qx.tapinhere.com/",
+    "description": "Open-source round QR code generator. A standard QR core readable by any phone camera, wrapped in Reed-Solomon-protected rings carrying time, optional GPS, a serial number and an optional HMAC signature.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any modern web browser",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://opensource.org/license/mit",
+    "codeRepository": "https://github.com/SangramChavan/qx"
+  }
+  </script>
+  <style>
+    :root {
+      --bg: #070a12;
+      --panel: #0f1626;
+      --panel-border: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.16);
+      --chrono: #a855f7;
+      --chrono-glow: rgba(168, 85, 247, 0.18);
+      --success: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .badge {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .badge-chrono {
+      background: var(--chrono-glow);
+      color: #d8b4fe;
+      border: 1px solid var(--chrono);
+    }
+    h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+    .subtitle { font-size: 12px; color: var(--muted); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 390px 1fr 390px;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 1240px) {
+      .workspace { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 7px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-group { display: flex; flex-direction: column; gap: 5px; }
+    label {
+      font-size: 12px;
+      color: var(--text);
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+    }
+    label span.val { font-family: var(--mono); color: var(--accent); font-size: 11px; }
+
+    input[type="text"], input[type="password"], input[type="datetime-local"], textarea, select {
+      background: #070b14;
+      border: 1px solid #334155;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      outline: none;
+      width: 100%;
+      min-width: 0;
+    }
+    textarea { resize: vertical; min-height: 48px; line-height: 1.4; }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    input[type="file"] { width: 100%; font-size: 12px; color: var(--muted); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 2px 0;
+    }
+    input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #334155;
+      padding: 8px 11px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { border-color: var(--accent); background: #26354d; }
+    button.primary { background: var(--accent); color: #070a12; border-color: var(--accent); }
+    button.primary:hover { background: #7dd3fc; }
+    button.chrono-btn { background: var(--chrono-glow); border-color: var(--chrono); color: #e9d5ff; }
+    button.danger { border-color: #7f1d1d; color: #fca5a5; }
+    button.danger:hover { background: #450a0a; }
+
+    .viewport {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 560px;
+      background: radial-gradient(circle at center, #1e293b 0%, #070a12 78%);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 22px;
+      gap: 14px;
+    }
+    #svg-container {
+      width: 465px;
+      max-width: 100%;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 18px 40px rgba(0,0,0,0.7));
+    }
+    #svg-container svg {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      cursor: crosshair;
+    }
+    .viewport-hint {
+      font-size: 11.5px;
+      color: var(--muted);
+      text-align: center;
+      font-family: var(--mono);
+      max-width: 490px;
+      line-height: 1.45;
+    }
+
+    .status-pill {
+      padding: 8px 11px;
+      border-radius: 7px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-ok { background: rgba(16, 185, 129, 0.12); border: 1px solid var(--success); color: #6ee7b7; }
+    .status-chrono { background: var(--chrono-glow); border: 1px solid var(--chrono); color: #e9d5ff; }
+    .status-warn { background: rgba(245, 158, 11, 0.12); border: 1px solid var(--warn); color: #fcd34d; }
+    .status-fail { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box {
+      background: #070b14;
+      border: 1px solid #1e293b;
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+    .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+    .stat-value { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text); margin-top: 2px; }
+
+    .hex-dump {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      line-height: 1.5;
+      color: #d1d5db;
+      word-break: break-all;
+      max-height: 125px;
+      overflow-y: auto;
+    }
+    .byte-chip {
+      display: inline-block;
+      padding: 1px 3.5px;
+      margin: 1px;
+      border-radius: 3px;
+      background: #1e293b;
+      font-size: 9.5px;
+    }
+    .byte-chip.parity { background: #1e1b4b; color: #a5b4fc; }
+    .byte-chip.scratched { background: #7f1d1d; color: #fecaca; text-decoration: line-through; }
+
+    @media (max-width: 600px) {
+      body { padding: 16px; }
+      .card, .viewport { padding: 16px; }
+      .viewport { min-height: 0; }
+      .toggle-row, .status-pill { gap: 12px; }
+      .brand { flex-wrap: wrap; }
+    }
+
+    /* ---- Landing section (above the studio) ---- */
+    .landing { display: flex; flex-direction: column; gap: 32px; padding-bottom: 8px; }
+    .landing nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .landing nav .links { display: flex; gap: 18px; flex-wrap: wrap; }
+    .landing nav a { color: var(--muted); text-decoration: none; font-size: 13px; min-height: 44px; display: inline-flex; align-items: center; }
+    .landing nav a:hover { color: var(--text); }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 32px; align-items: center; }
+    .hero h1 { font-size: clamp(28px, 4.2vw, 46px); line-height: 1.1; letter-spacing: -0.02em; font-weight: 700; }
+    .hero .lede { color: var(--muted); font-size: 16px; line-height: 1.55; margin-top: 14px; max-width: 56ch; }
+    .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    .cta {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px;
+      border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none;
+      border: 1px solid #334155; color: var(--text); background: #1e293b;
+    }
+    .cta:hover { border-color: var(--accent); }
+    .cta.primary { background: var(--accent); color: #070a12; border-color: var(--accent); }
+    .hero-symbol { width: 100%; max-width: 380px; aspect-ratio: 1; margin: 0 auto; filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.7)); }
+    .hero-symbol svg { width: 100%; height: 100%; border-radius: 50%; }
+    .landing h2 { font-size: 20px; letter-spacing: -0.01em; }
+    .landing .section-lede { color: var(--muted); font-size: 14px; line-height: 1.55; margin-top: 6px; max-width: 70ch; }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    .landing .card h3 { font-size: 15px; }
+    .landing .card p, .landing li { color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .landing ul { padding-left: 18px; display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+    .note {
+      border: 1px solid var(--warn); background: rgba(245, 158, 11, 0.1); color: #fcd34d;
+      border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.5; margin-top: 14px;
+    }
+    .landing a.inline { color: var(--accent); }
+    .brand h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+    .studio-head { border-top: 1px solid var(--panel-border); padding-top: 24px; scroll-margin-top: 12px; }
+    footer.site-foot { color: var(--muted); font-size: 12px; line-height: 1.6; border-top: 1px solid var(--panel-border); padding-top: 14px; }
+    footer.site-foot a { color: var(--accent); }
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: minmax(0, 1fr); }
+      .cards { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="landing" id="top" aria-label="About QX">
+    <nav aria-label="Main">
+      <span class="badge">QX</span>
+      <div class="links">
+        <a href="#how">How it works</a>
+        <a href="#limits">Limits</a>
+        <a href="#studio">Studio</a>
+        <a href="https://github.com/SangramChavan/qx" rel="noopener">GitHub</a>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div>
+        <span class="badge badge-chrono">OPEN SOURCE &middot; MIT &middot; DRAFT SPEC v2.5</span>
+        <h1 style="margin-top:12px;">A round QR code that carries signed, scratch-tolerant data</h1>
+        <p class="lede">QX puts a standard QR code at the centre of a 30&nbsp;mm disc and wraps it in rings that hold the time to the second, an optional GPS position, a serial number and an optional signature. Any phone camera opens the link; the rings add proof and survive damage.</p>
+        <div class="cta-row">
+          <a class="cta primary" href="#studio">Open the studio</a>
+          <a class="cta" href="https://github.com/SangramChavan/qx" rel="noopener">View source on GitHub</a>
+        </div>
+      </div>
+      <div class="hero-symbol" id="hero-symbol" role="img" aria-label="Sample QX symbol: a round code with a QR square in the centre and data rings around it"></div>
+    </div>
+
+    <div id="how">
+      <h2>How a QX symbol is built</h2>
+      <p class="section-lede">Three layers, each doing one job.</p>
+      <div class="cards">
+        <div class="card">
+          <h3>1. QR core: works everywhere</h3>
+          <p>A standard ISO/IEC 18004 QR code (error-correction level M, 4-module quiet zone). Any phone camera reads it and opens your link. Up to 106 bytes of URL.</p>
+        </div>
+        <div class="card">
+          <h3>2. Time marks</h3>
+          <p>48 marks between the core and the rings encode the date and time to the second, with an 8-bit checksum, so a printed symbol records when it was made.</p>
+        </div>
+        <div class="card">
+          <h3>3. Data rings</h3>
+          <p>80 bytes: 48 of payload (time, optional GPS to about 1&ndash;2&nbsp;m, a serial, an optional HMAC-SHA256 tag) and 32 of Reed&ndash;Solomon error correction that repairs up to 16 damaged bytes.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>Where it fits</h2>
+      <ul>
+        <li>Product authentication: a signed link on a label tells buyers the unit is genuine, and the issuer can see repeat scans.</li>
+        <li>Asset tags and inventory: serial, commissioning time and place, readable offline once a reader exists.</li>
+        <li>NFC + QR tags (pet, luggage, accessories): a printed fallback next to a tap-to-read chip.</li>
+        <li>Event tickets: a live on-screen code whose timestamp changes every second, so screenshots go stale.</li>
+      </ul>
+    </div>
+
+    <div id="limits">
+      <h2>What QX does not do yet</h2>
+      <ul>
+        <li>Phone cameras read only the QR core. Reading the rings needs a QX reader, which is still in development, so signed verification today runs through the link in the QR code.</li>
+        <li>Tested with software decoders, not yet scanned from printed labels. Plan for at least 300&nbsp;DPI printing: the smallest QR squares are 0.23&ndash;0.34&nbsp;mm.</li>
+        <li>A signature shows who issued a code, not that a label is the original. A photocopy of a valid code still verifies, so copy detection needs server-side scan checks or a chip.</li>
+      </ul>
+      <p class="note">This is a draft specification and a working prototype, not a certified standard. Do not rely on it for safety-critical use.</p>
+    </div>
+  </section>
+
+  <header id="studio" class="studio-head">
+    <div class="brand">
+      <span class="badge">QX-HD v2.5</span>
+      <span class="badge badge-chrono">48-BIT CHRONO-SPOKES</span>
+      <div>
+        <h2 id="studio-title">QX Studio &mdash; build and test a symbol in your browser</h2>
+        <div class="subtitle">48-Bit Radial Crescent Timestamp (Date + Time to the Second + CRC-8) &bull; 106B URL Core &bull; 80B RS(80,48) Polar Annulus (Time + GPS + Serial)</div>
+      </div>
+    </div>
+    <div class="btn-row" style="width: 100%; max-width: 240px;">
+      <button class="primary" id="btn-download-svg" style="grid-column: span 2;">Download 30mm Production SVG</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- Left Column: Controls -->
+    <div class="card">
+      <div class="card-title">
+        <span>1. High-Capacity URL &amp; QX Payload</span>
+        <span id="url-byte-counter" class="val" style="font-family:var(--mono);color:var(--accent);">49 / 106 Bytes</span>
+      </div>
+
+      <div class="control-group">
+        <label for="qr-url">Full Resolver URL / URI (Mixed-Case UTF-8 Byte Mode)</label>
+        <textarea id="qr-url">https://qx.ambiverttech.com/id/A1B2/0192f8a4-7c9e</textarea>
+        <button id="btn-strip-tracking">Strip Tracking Params</button>
+        <div class="subtitle" id="url-note"></div>
+      </div>
+
+      <div class="control-group">
+        <label for="qx-meta">
+          Serial / Batch (A-Z a-z 0-9 - _ packs to 32 chars, else 25 B UTF-8)
+          <span class="val" id="meta-byte-counter">0 / 25 B</span>
+        </label>
+        <input type="text" id="qx-meta" value="AMB-2026-PUN-BATCH09-SN8849201" maxlength="32" />
+      </div>
+
+      <div class="card-title" style="margin-top: 2px;">
+        <span>2. 48-Bit Chrono-Spoke Timestamp Register</span>
+        <span class="badge badge-chrono" style="font-size:9px;padding:2px 5px;">4 CRESCENTS &times; 12 BITS</span>
+      </div>
+
+      <div class="control-group">
+        <label for="chrono-iso">
+          Generation Timestamp (ISO 8601, Z or ±HH:MM required)
+          <span class="val" id="chrono-epoch-val">Epoch: 0</span>
+        </label>
+        <input type="text" id="chrono-iso" value="" placeholder="2026-11-01T14:30:00+05:30" />
+      </div>
+
+      <div class="btn-row">
+        <button class="chrono-btn" id="btn-stamp-now">Stamp Current Second</button>
+        <button id="btn-toggle-live">Live Tick: OFF</button>
+      </div>
+
+      <div class="toggle-row">
+        <span>Highlight 48 Chrono-Spokes in Violet (Preview Only)</span>
+        <input type="checkbox" id="chk-color-chrono" checked />
+      </div>
+
+      <div class="control-group">
+        <label for="gps-coords">
+          GPS Origin (lat, lon, decimal degrees; optional)
+          <span class="val" id="gps-val">Not included</span>
+        </label>
+        <input type="text" id="gps-coords" autocomplete="off" spellcheck="false" placeholder="18.520430, 73.856743" value="" />
+      </div>
+      <div class="btn-row">
+        <button id="btn-gps-locate">Use My Location</button>
+        <button id="btn-gps-clear">Clear GPS</button>
+      </div>
+
+      <div class="control-group">
+        <label for="issuer-key">
+          Issuer Secret Key (64 hex; memory only, never exported)
+          <span class="val" id="key-status">Unsigned</span>
+        </label>
+        <input type="password" id="issuer-key" autocomplete="off" spellcheck="false" placeholder="Empty = unsigned" />
+      </div>
+      <div class="btn-row">
+        <button id="btn-key-generate">Generate Key</button>
+        <button id="btn-key-clear">Clear Key</button>
+      </div>
+      <div class="toggle-row">
+        <span>Show Key</span>
+        <input type="checkbox" id="chk-show-key" />
+      </div>
+
+      <div class="card-title" style="margin-top: 2px;">3. Visual Camouflage &amp; Geometry</div>
+
+      <div class="control-group">
+        <label for="dot-scale">
+          Core Micro-Dot Radius
+          <span class="val" id="dot-scale-val">0.37 mod</span>
+        </label>
+        <input type="range" id="dot-scale" min="0.28" max="0.46" step="0.01" value="0.37" />
+      </div>
+
+      <div class="toggle-row">
+        <span>Show Central Ambivert "QX" Emblem Overlay</span>
+        <input type="checkbox" id="chk-emblem" checked />
+      </div>
+      <div class="control-group">
+        <label for="logo-file">
+          Center Logo (PNG / JPG / SVG / WebP, max 2 MB)
+          <span class="val" id="logo-status">None</span>
+        </label>
+        <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" />
+        <button id="btn-clear-logo">Remove Logo</button>
+        <div class="subtitle" id="center-note"></div>
+      </div>
+      <div class="toggle-row">
+        <span>Show 16n Harmonic Sector &amp; Crescent Guides</span>
+        <input type="checkbox" id="chk-guides" />
+      </div>
+
+      <div class="btn-row" style="margin-top: 2px;">
+        <button id="btn-scratch-slash">Simulate Heavy Slash (18B)</button>
+        <button class="danger" id="btn-clear-damage">Reset Damage</button>
+      </div>
+    </div>
+
+    <!-- Center Column: Interactive SVG Viewport -->
+    <div class="viewport">
+      <div id="svg-container"></div>
+      <div class="viewport-hint">
+        <strong>Violet Petals = 48-Bit Chrono-Spokes:</strong> The 4 crescent gaps between the inner square core and the outer rings now encode the exact <strong>Date &amp; Time down to the second</strong> + an 8-bit CRC-8 checksum. Toggle "Live Tick" to watch the spokes update every second!
+      </div>
+    </div>
+
+    <!-- Right Column: Telemetry -->
+    <div class="card">
+      <div class="card-title">
+        <span>Decoded Telemetry &amp; Chrono-Register</span>
+        <span id="crc-badge" class="badge">CRC-32 + CRC-8 VALID</span>
+      </div>
+
+      <div class="status-pill status-chrono">
+        <span>Decoded Chrono-Spokes</span>
+        <span id="decoded-time-display">2026-11-01 17:16:00</span>
+      </div>
+
+      <div id="sig-status" class="status-pill status-warn">
+        <span>Issuer Signature</span>
+        <span id="sig-status-text">UNSIGNED</span>
+      </div>
+
+      <div id="gps-status" class="status-pill status-warn">
+        <span>Decoded GPS Origin</span>
+        <span id="decoded-gps">NOT INCLUDED</span>
+      </div>
+
+      <div id="qr-status" class="status-pill status-ok">
+        <span>Camouflaged Core Carrier</span>
+        <span id="qr-status-text">V3 (29&times;29) NATIVE READY</span>
+      </div>
+
+      <div id="polar-status" class="status-pill status-ok">
+        <span>Outer QX-HD Polar (80 Bytes)</span>
+        <span id="polar-status-text">80/80 BYTES INTACT</span>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-label">Chrono-Spoke Payload</div>
+          <div class="stat-value" id="stat-chrono-bits">48 Bits (36b Sec + 8b CRC)</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Outer Polar Capacity</div>
+          <div class="stat-value">80 B (48 Data + 32 RS)</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Prime Interleave Stride</div>
+          <div class="stat-value">23 mod 80</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">RS Bytes Corrected (Max 16)</div>
+          <div class="stat-value" id="stat-budget">0</div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>48-Bit Chrono-Spoke Bitstream (Top / Right / Bottom / Left)</span>
+        </label>
+        <div class="hex-dump" id="chrono-bit-dump"></div>
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>80-Byte Outer Polar Codeword Map (Click sectors to scratch)</span>
+          <span class="val">48B Data + 32B RS</span>
+        </label>
+        <div class="hex-dump" id="codeword-dump"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-foot">
+    <p>QX is open source under the <a href="https://github.com/SangramChavan/qx/blob/main/LICENSE" rel="noopener">MIT licence</a>. The studio runs entirely in your browser: nothing is uploaded, and an issuer key you type stays in page memory and is never written into a downloaded file.</p>
+    <p><a href="#top">Back to top</a> &middot; <a href="https://github.com/SangramChavan/qx" rel="noopener">Source and issues on GitHub</a></p>
+  </footer>
+
+<script>
+/**
+ * ============================================================================
+ * 1. Galois Field GF(2^8), CRC-32 & CRC-8 (Chrono-Spoke Checksum)
+ * ============================================================================
+ */
+const GF256 = {
+  EXP: new Uint8Array(512),
+  LOG: new Uint8Array(256),
+
+  init() {
+    let x = 1;
+    for (let i = 0; i < 255; i++) {
+      this.EXP[i] = x;
+      this.LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11D;
+    }
+    for (let i = 255; i < 512; i++) this.EXP[i] = this.EXP[i - 255];
+  },
+
+  mul(a, b) {
+    if (a === 0 || b === 0) return 0;
+    return this.EXP[this.LOG[a] + this.LOG[b]];
+  },
+
+  buildGenerator(degree) {
+    let g = [1];
+    for (let i = 0; i < degree; i++) {
+      const next = new Array(g.length + 1).fill(0);
+      const root = this.EXP[i];
+      for (let j = 0; j < g.length; j++) {
+        next[j] ^= g[j];
+        next[j + 1] ^= this.mul(g[j], root);
+      }
+      g = next;
+    }
+    return g;
+  },
+
+  rsEncode(dataBytes, ecLen) {
+    const gen = this.buildGenerator(ecLen);
+    const ecc = new Array(ecLen).fill(0);
+    for (const b of dataBytes) {
+      const factor = b ^ ecc[0];
+      ecc.shift();
+      ecc.push(0);
+      if (factor !== 0) {
+        for (let j = 0; j < ecLen; j++) {
+          ecc[j] ^= this.mul(gen[j + 1], factor);
+        }
+      }
+    }
+    return ecc;
+  },
+
+  crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (const b of bytes) {
+      crc ^= b;
+      for (let j = 0; j < 8; j++) {
+        crc = (crc >>> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
+      }
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  },
+
+  crc8(bitsArray) {
+    // Polynomial 0x07 (x^8 + x^2 + x + 1) over 36 timestamp bits
+    let crc = 0x00;
+    for (const bit of bitsArray) {
+      const msb = (crc >> 7) & 1;
+      crc = ((crc << 1) & 0xFF);
+      if (msb ^ bit) crc ^= 0x07;
+    }
+    return crc;
+  },
+
+  // --- RS errors + erasures decoder (generator roots a^0..a^(n-1), polynomials highest-degree first) ---
+  pow2(n) { return this.EXP[((n % 255) + 255) % 255]; },
+  div(a, b) { return a === 0 ? 0 : this.EXP[(this.LOG[a] + 255 - this.LOG[b]) % 255]; },
+  polyEval(p, x) { let y = p[0]; for (let i = 1; i < p.length; i++) y = this.mul(y, x) ^ p[i]; return y; },
+  polyScale(p, x) { return p.map(c => this.mul(c, x)); },
+  polyAdd(p, q) {
+    const r = new Array(Math.max(p.length, q.length)).fill(0);
+    p.forEach((c, i) => { r[i + r.length - p.length] ^= c; });
+    q.forEach((c, i) => { r[i + r.length - q.length] ^= c; });
+    return r;
+  },
+  polyMul(p, q) {
+    const r = new Array(p.length + q.length - 1).fill(0);
+    for (let j = 0; j < q.length; j++) for (let i = 0; i < p.length; i++) r[i + j] ^= this.mul(p[i], q[j]);
+    return r;
+  },
+
+  // Returns the corrected codeword, or null when it is beyond what nsym parity bytes can fix.
+  rsDecode(msgIn, nsym, erasePos = []) {
+    const msg = [...msgIn];
+    if (erasePos.length > nsym) return null;
+    for (const e of erasePos) msg[e] = 0;
+    const synd = [0];
+    for (let i = 0; i < nsym; i++) synd.push(this.polyEval(msg, this.pow2(i)));
+    if (synd.every(s => s === 0)) return msg;
+
+    // Forney syndromes: fold the known erasures out so BM only hunts unknown errors
+    const n = msg.length;
+    const fsynd = synd.slice(1);
+    for (const p of erasePos) {
+      const x = this.pow2(n - 1 - p);
+      for (let j = 0; j < fsynd.length - 1; j++) fsynd[j] = this.mul(fsynd[j], x) ^ fsynd[j + 1];
+    }
+
+    // Berlekamp-Massey error locator
+    let errLoc = [1], oldLoc = [1];
+    for (let i = 0; i < nsym - erasePos.length; i++) {
+      let delta = fsynd[i];
+      for (let j = 1; j < errLoc.length; j++) delta ^= this.mul(errLoc[errLoc.length - 1 - j], fsynd[i - j]);
+      oldLoc = [...oldLoc, 0];
+      if (delta !== 0) {
+        if (oldLoc.length > errLoc.length) {
+          const newLoc = this.polyScale(oldLoc, delta);
+          oldLoc = this.polyScale(errLoc, this.div(1, delta));
+          errLoc = newLoc;
+        }
+        errLoc = this.polyAdd(errLoc, this.polyScale(oldLoc, delta));
+      }
+    }
+    while (errLoc.length && errLoc[0] === 0) errLoc.shift();
+    const numErrs = errLoc.length - 1;
+    if (numErrs * 2 + erasePos.length > nsym) return null;
+
+    // Chien search: roots must match the locator degree or the codeword is unrecoverable
+    const revLoc = [...errLoc].reverse();
+    const errPos = [];
+    for (let i = 0; i < n; i++) if (this.polyEval(revLoc, this.pow2(i)) === 0) errPos.push(n - 1 - i);
+    if (errPos.length !== numErrs) return null;
+
+    // Forney algorithm for errata magnitudes
+    const allPos = [...erasePos, ...errPos];
+    const coefPos = allPos.map(p => n - 1 - p);
+    let eLoc = [1];
+    for (const c of coefPos) eLoc = this.polyMul(eLoc, [this.pow2(c), 1]);
+    const prod = this.polyMul([...synd].reverse(), eLoc);
+    const errEval = prod.slice(prod.length - eLoc.length).reverse();
+    const X = coefPos.map(c => this.pow2(c));
+    for (let i = 0; i < X.length; i++) {
+      const xiInv = this.div(1, X[i]);
+      let locPrime = 1;
+      for (let j = 0; j < X.length; j++) if (j !== i) locPrime = this.mul(locPrime, 1 ^ this.mul(xiInv, X[j]));
+      if (locPrime === 0) return null;
+      const y = this.mul(X[i], this.polyEval([...errEval].reverse(), xiInv));
+      msg[allPos[i]] ^= this.div(y, locPrime);
+    }
+
+    for (let i = 0; i < nsym; i++) if (this.polyEval(msg, this.pow2(i)) !== 0) return null;
+    return msg;
+  }
+};
+GF256.init();
+
+/**
+ * ============================================================================
+ * 2. 48-Bit Chrono-Spoke Timestamp Encoder & Decoder
+ *    Encodes exact date & time down to the second inside the 4 corner crescents
+ * ============================================================================
+ */
+const QXChronoRegister = {
+  // Custom QX Epoch: 2025-01-01T00:00:00Z (1735689600 Unix seconds)
+  QX_EPOCH_UNIX_SEC: 1735689600,
+  MAX_UNIX_SEC: 0xFFFFFFFF, // polar payload stores 32-bit unix seconds (up to 2106-02-07)
+
+  // Strict ISO 8601: seconds and an explicit zone are required; impossible dates are rejected, never guessed.
+  parseStrict(text) {
+    const m = String(text).trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|([+-])(\d{2}):(\d{2}))$/);
+    if (!m) return { ok: false, err: "Use YYYY-MM-DDTHH:MM:SS + Z or ±HH:MM" };
+    const ms = Date.parse(m[0]);
+    const offsetMin = m[7] === "Z" ? 0 : (m[8] === "-" ? -1 : 1) * (Number(m[9]) * 60 + Number(m[10]));
+    const local = new Date(ms + offsetMin * 60000);
+    const same = !isNaN(ms) &&
+      local.getUTCFullYear() === Number(m[1]) && local.getUTCMonth() + 1 === Number(m[2]) &&
+      local.getUTCDate() === Number(m[3]) && local.getUTCHours() === Number(m[4]) &&
+      local.getUTCMinutes() === Number(m[5]) && local.getUTCSeconds() === Number(m[6]);
+    if (!same) return { ok: false, err: "Not a real calendar date/time" };
+    const unixSec = Math.floor(ms / 1000);
+    if (unixSec < this.QX_EPOCH_UNIX_SEC) return { ok: false, err: "Before QX epoch (2025-01-01Z)" };
+    if (unixSec > this.MAX_UNIX_SEC) return { ok: false, err: "After 2106-02-07 (32-bit limit)" };
+    return { ok: true, unixSec };
+  },
+
+  encodeTimestampTo48Bits(dateString) {
+    const ts = this.parseStrict(dateString);
+    if (!ts.ok) throw new Error(`Invalid timestamp: ${ts.err}`);  // callers validate first; never substitute a time
+    const unixSec = ts.unixSec;
+    // 36-bit unsigned offset from 2025-01-01 (covers 2,177 years at 1-second resolution)
+    const deltaSec = unixSec - this.QX_EPOCH_UNIX_SEC;
+
+    const timeBits36 = [];
+    for (let i = 35; i >= 0; i--) {
+      timeBits36.push(Number((BigInt(deltaSec) >> BigInt(i)) & 1n));
+    }
+
+    const crc8Val = GF256.crc8(timeBits36);
+    const crcBits8 = [];
+    for (let i = 7; i >= 0; i--) {
+      crcBits8.push((crc8Val >> i) & 1);
+    }
+
+    const payload44 = [...timeBits36, ...crcBits8]; // 36 time bits + 8 CRC bits = 44 bits
+
+    // Distribute across 4 crescents (Top, Right, Bottom, Left), 12 spokes per crescent:
+    // Spoke 0 of each crescent is a fixed '1' calibration framing bit + 11 data/CRC bits = 12 spokes
+    const crescents = [[], [], [], []];
+    for (let q = 0; q < 4; q++) {
+      crescents[q].push(1); // Framing sync spoke
+      for (let k = 0; k < 11; k++) {
+        crescents[q].push(payload44[q * 11 + k]);
+      }
+    }
+
+    return {
+      unixSec,
+      deltaSec,
+      crc8Val,
+      crescents,
+      flat48: [...crescents[0], ...crescents[1], ...crescents[2], ...crescents[3]]
+    };
+  },
+
+  decode48BitsToISO(flat48) {
+    const extracted44 = [];
+    for (let q = 0; q < 4; q++) {
+      for (let k = 1; k < 12; k++) {
+        extracted44.push(flat48[q * 12 + k]);
+      }
+    }
+    const timeBits36 = extracted44.slice(0, 36);
+    const rxCrcBits8 = extracted44.slice(36, 44);
+
+    let deltaSec = 0n;
+    for (const b of timeBits36) {
+      deltaSec = (deltaSec << 1n) | BigInt(b);
+    }
+
+    let rxCrc = 0;
+    for (const b of rxCrcBits8) rxCrc = (rxCrc << 1) | b;
+    const calcCrc = GF256.crc8(timeBits36);
+
+    const unixSec = Number(deltaSec) + this.QX_EPOCH_UNIX_SEC;
+    const dt = new Date(unixSec * 1000);
+    return {
+      valid: rxCrc === calcCrc,
+      unixSec,
+      isoText: dt.toISOString().replace("T", " ").slice(0, 19) + " UTC",
+      crcHex: "0x" + calcCrc.toString(16).toUpperCase().padStart(2, "0")
+    };
+  }
+};
+
+/**
+ * ============================================================================
+ * 3. Multi-Version UTF-8 Byte-Mode Matrix Encoder (ISO/IEC 18004: Versions 2 to 6, EC Level M)
+ *    Level M (~15% recovery) so the center emblem/logo hole stays decodable.
+ *    All 8 masks are scored with the standard N1-N4 penalties and the lowest wins.
+ *    UTF-8 URLs with non-ASCII bytes carry ECI 26; plain ASCII needs none.
+ * ============================================================================
+ */
+const MultiVersionMatrix = {
+  SPECS: {
+    2: { size: 25, blocks: 1, dataPerBlock: 28, ecPerBlock: 16, align: [6, 18] },
+    3: { size: 29, blocks: 1, dataPerBlock: 44, ecPerBlock: 26, align: [6, 22] },
+    4: { size: 33, blocks: 2, dataPerBlock: 32, ecPerBlock: 18, align: [6, 26] },
+    5: { size: 37, blocks: 2, dataPerBlock: 43, ecPerBlock: 24, align: [6, 30] },
+    6: { size: 41, blocks: 4, dataPerBlock: 27, ecPerBlock: 16, align: [6, 34] }
+  },
+
+  MASKS: [
+    (r, c) => (r + c) % 2 === 0,
+    (r, c) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => (r * c) % 2 + (r * c) % 3 === 0,
+    (r, c) => ((r * c) % 2 + (r * c) % 3) % 2 === 0,
+    (r, c) => ((r + c) % 2 + (r * c) % 3) % 2 === 0
+  ],
+
+  needsEci: bytes => bytes.some(b => b > 0x7F),
+
+  // ECI header (12 bits) + byte-mode header (4 + 8) + 8 bits per byte
+  bitsNeeded(bytes) {
+    return (this.needsEci(bytes) ? 12 : 0) + 12 + 8 * bytes.length;
+  },
+
+  // Smallest version that fits, or null when the URL is too long for V6-M
+  selectVersion(bytes) {
+    for (const v of [2, 3, 4, 5, 6]) {
+      const s = this.SPECS[v];
+      if (bytes.length <= 255 && this.bitsNeeded(bytes) <= s.blocks * s.dataPerBlock * 8) return v;
+    }
+    return null;
+  },
+
+  // 15-bit format info for EC level M (00) + mask: BCH(15,5) remainder, then XOR 0x5412 (ISO 18004 7.9)
+  formatBits(mask) {
+    const data = mask;  // level M = 00 in the top two bits
+    let rem = data << 10;
+    for (let i = 14; i >= 10; i--) if ((rem >> i) & 1) rem ^= 0x537 << (i - 10);
+    const bits = ((data << 10) | rem) ^ 0x5412;
+    return Array.from({ length: 15 }, (_, i) => (bits >> (14 - i)) & 1);
+  },
+
+  // ISO 18004 7.8.3 mask penalty: N1 runs, N2 2x2 blocks, N3 finder-like 1:1:3:1:1, N4 dark balance
+  penalty(g) {
+    const S = g.length;
+    let p = 0;
+    for (let i = 0; i < S; i++) {
+      for (const line of [g[i], g.map(row => row[i])]) {
+        let run = 1;
+        for (let j = 1; j <= S; j++) {
+          if (j < S && line[j] === line[j - 1]) run++;
+          else { if (run >= 5) p += run - 2; run = 1; }
+        }
+        const str = line.join("");
+        for (let j = 0; j + 11 <= S; j++) {
+          const w = str.slice(j, j + 11);
+          if (w === "10111010000" || w === "00001011101") p += 40;
+        }
+      }
+    }
+    for (let r = 0; r < S - 1; r++) {
+      for (let c = 0; c < S - 1; c++) {
+        const v = g[r][c];
+        if (v === g[r][c + 1] && v === g[r + 1][c] && v === g[r + 1][c + 1]) p += 3;
+      }
+    }
+    const dark = g.reduce((a, row) => a + row.reduce((x, y) => x + y, 0), 0);
+    p += Math.floor(Math.abs(dark * 100 / (S * S) - 50) / 5) * 10;
+    return p;
+  },
+
+  encodeUrlToMatrix(urlString, forceMask = null) {
+    const utf8Bytes = Array.from(new TextEncoder().encode(urlString));
+    const version = this.selectVersion(utf8Bytes);
+    if (!version) throw new Error("URL too long for QR V6-M");  // callers validate first; never truncate
+    const spec = this.SPECS[version];
+
+    const bits = [];
+    const pushBits = (val, len) => {
+      for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1);
+    };
+
+    if (this.needsEci(utf8Bytes)) {
+      pushBits(0b0111, 4);   // ECI mode
+      pushBits(26, 8);       // ECI 000026 = UTF-8
+    }
+    pushBits(0b0100, 4);
+    pushBits(utf8Bytes.length, 8);
+    for (const b of utf8Bytes) pushBits(b, 8);
+
+    const maxDataBits = spec.blocks * spec.dataPerBlock * 8;
+    const term = Math.min(4, maxDataBits - bits.length);
+    pushBits(0, term);
+    while (bits.length % 8 !== 0) bits.push(0);
+
+    const pads = [0xEC, 0x11];
+    let pIdx = 0;
+    while (bits.length < maxDataBits) {
+      pushBits(pads[pIdx % 2], 8);
+      pIdx++;
+    }
+
+    const dataBytes = [];
+    for (let i = 0; i < maxDataBits; i += 8) {
+      let b = 0;
+      for (let k = 0; k < 8; k++) b = (b << 1) | bits[i + k];
+      dataBytes.push(b);
+    }
+
+    // Split into equal RS blocks, then interleave data columns followed by EC columns (ISO 18004 7.6)
+    const dataBlocks = [], ecBlocks = [];
+    for (let b = 0; b < spec.blocks; b++) {
+      const blk = dataBytes.slice(b * spec.dataPerBlock, (b + 1) * spec.dataPerBlock);
+      dataBlocks.push(blk);
+      ecBlocks.push(GF256.rsEncode(blk, spec.ecPerBlock));
+    }
+    const allCodewords = [];
+    for (let i = 0; i < spec.dataPerBlock; i++) for (const blk of dataBlocks) allCodewords.push(blk[i]);
+    for (let i = 0; i < spec.ecPerBlock; i++) for (const blk of ecBlocks) allCodewords.push(blk[i]);
+
+    const finalBits = [];
+    for (const cw of allCodewords) {
+      for (let i = 7; i >= 0; i--) finalBits.push((cw >> i) & 1);
+    }
+
+    const S = spec.size;
+    const grid = Array.from({ length: S }, () => new Array(S).fill(0));
+    const reserved = Array.from({ length: S }, () => new Array(S).fill(false));
+    const isFinder = Array.from({ length: S }, () => new Array(S).fill(false));
+
+    const markFinder = (ro, co) => {
+      for (let r = -1; r <= 7; r++) {
+        for (let c = -1; c <= 7; c++) {
+          const rr = ro + r, cc = co + c;
+          if (rr >= 0 && rr < S && cc >= 0 && cc < S) {
+            reserved[rr][cc] = true;
+            if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
+              isFinder[rr][cc] = true;
+              if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+                grid[rr][cc] = 1;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    markFinder(0, 0);
+    markFinder(0, S - 7);
+    markFinder(S - 7, 0);
+
+    const ar = spec.align[1], ac = spec.align[1];
+    for (let r = -2; r <= 2; r++) {
+      for (let c = -2; c <= 2; c++) {
+        reserved[ar + r][ac + c] = true;
+        if (Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0)) {
+          grid[ar + r][ac + c] = 1;
+        }
+      }
+    }
+
+    for (let i = 8; i < S - 8; i++) {
+      if (!reserved[6][i]) { reserved[6][i] = true; grid[6][i] = (i % 2 === 0) ? 1 : 0; }
+      if (!reserved[i][6]) { reserved[i][6] = true; grid[i][6] = (i % 2 === 0) ? 1 : 0; }
+    }
+
+    reserved[S - 8][8] = true;
+    grid[S - 8][8] = 1;
+    for (let i = 0; i < 9; i++) {
+      if (i !== 6) { reserved[8][i] = true; reserved[i][8] = true; }
+    }
+    for (let i = 0; i < 8; i++) {
+      reserved[8][S - 1 - i] = true;
+      reserved[S - 1 - i][8] = true;
+    }
+
+    // Place data unmasked and remember where it went; masks apply only to these modules
+    const dataCells = [];
+    const cellCodeword = Array.from({ length: S }, () => new Array(S).fill(-1));
+    let bitIdx = 0;
+    let upward = true;
+    for (let col = S - 1; col > 0; col -= 2) {
+      if (col === 6) col--;
+      for (let step = 0; step < S; step++) {
+        const r = upward ? (S - 1 - step) : step;
+        for (const c of [col, col - 1]) {
+          if (!reserved[r][c]) {
+            const inData = bitIdx < finalBits.length;
+            cellCodeword[r][c] = inData ? Math.floor(bitIdx / 8) : -1;  // -1 = remainder bit
+            grid[r][c] = inData ? finalBits[bitIdx++] : 0;
+            dataCells.push([r, c]);
+          }
+        }
+      }
+      upward = !upward;
+    }
+
+    const c1 = [[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+    const c2 = [
+      [S-1,8],[S-2,8],[S-3,8],[S-4,8],[S-5,8],[S-6,8],[S-7,8],
+      [8,S-8],[8,S-7],[8,S-6],[8,S-5],[8,S-4],[8,S-3],[8,S-2],[8,S-1]
+    ];
+    const applyMask = (m) => {
+      const g = grid.map(row => [...row]);
+      for (const [r, c] of dataCells) if (this.MASKS[m](r, c)) g[r][c] ^= 1;
+      const fmt = this.formatBits(m);
+      for (let i = 0; i < 15; i++) {
+        g[c1[i][0]][c1[i][1]] = fmt[i];
+        g[c2[i][0]][c2[i][1]] = fmt[i];
+      }
+      return g;
+    };
+
+    let best = null;
+    for (let m = 0; m < 8; m++) {
+      if (forceMask !== null && m !== forceMask) continue;
+      const g = applyMask(m);
+      const score = this.penalty(g);
+      if (!best || score < best.score) best = { mask: m, grid: g, score };
+    }
+
+    return {
+      version, size: S, grid: best.grid, isFinder, mask: best.mask, penalty: best.score,
+      eci: this.needsEci(utf8Bytes), byteLen: utf8Bytes.length, totalCodewords: allCodewords.length,
+      cellCodeword, blocks: spec.blocks, dataCodewords: spec.blocks * spec.dataPerBlock, ecPerBlock: spec.ecPerBlock
+    };
+  },
+
+  // Interleaved codeword index -> RS block (data columns first, then EC columns)
+  blockOf(info, k) {
+    return k < info.dataCodewords ? k % info.blocks : (k - info.dataCodewords) % info.blocks;
+  },
+
+  // Largest centre hole (<= maxMm) whose covered modules touch at most a quarter of each block's
+  // EC codewords, i.e. half its correction capacity; the other half stays free for real damage.
+  safeHoleRadius(info, halfMm, modMm, maxMm = 1.35) {
+    const budget = Math.floor(info.ecPerBlock / 4);
+    for (let R = maxMm; R >= 0.6; R -= 0.05) {
+      const perBlock = new Array(info.blocks).fill(null).map(() => new Set());
+      for (let r = 0; r < info.size; r++) {
+        for (let c = 0; c < info.size; c++) {
+          const k = info.cellCodeword[r][c];
+          if (k < 0) continue;
+          // any part of the module inside the hole counts
+          const cx = -halfMm + (c + 0.5) * modMm, cy = -halfMm + (r + 0.5) * modMm;
+          if (Math.hypot(cx, cy) - modMm * Math.SQRT1_2 < R) perBlock[this.blockOf(info, k)].add(k);
+        }
+      }
+      if (perBlock.every(s => s.size <= budget)) return R;
+    }
+    return 0;  // no safe hole at this size: draw no centre mark rather than risk scanning
+  }
+};
+
+/**
+ * ============================================================================
+ * 4. High-Density QX-HD Polar Engine + 48-Bit Chrono-Spoke Renderer
+ * ============================================================================
+ */
+/**
+ * Polar Payload v6 (48 bytes, protected by RS(80,48) in the rings)
+ *   [0]      0x60 | flags      (high nibble = layout 6; flags: GPS, packed serial, HMAC tag)
+ *   [1..4]   unix seconds      (32-bit, duplicates the chrono-spokes)
+ *   [5..10]  GPS               (24-bit lat + 24-bit lon fixed point, zero if absent)
+ *   [11..18] tag               (phase 1: CRC-32 of the QR URL + 4 zero bytes; phase 3: truncated HMAC)
+ *   [19..43] serial / batch    (25 B: 6-bit packed when possible, else UTF-8)
+ *   [44..47] CRC-32 of [0..43]
+ */
+const QXPayloadV6 = {
+  PROFILE: 0x60,
+  F_GPS: 0x01,
+  F_PACKED: 0x02,
+  F_HMAC: 0x04,
+  META_BYTES: 25,
+  PACKED_MAX_CHARS: 32,
+  B64: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+  GPS_STEP_LAT: 180 / 0xFFFFFF,  // ~1.2 m
+  GPS_STEP_LON: 360 / 0xFFFFFF,  // ~2.4 m at the equator
+
+  utf8: s => Array.from(new TextEncoder().encode(s)),
+  u32: v => [(v >>> 24) & 0xFF, (v >>> 16) & 0xFF, (v >>> 8) & 0xFF, v & 0xFF],
+
+  // Serial text: 6-bit length + 6 bits/char when every char is A-Z a-z 0-9 - _ (max 32), else raw UTF-8 (max 25 B)
+  encodeMeta(text) {
+    const chars = [...text];
+    if (chars.length <= this.PACKED_MAX_CHARS && chars.every(ch => this.B64.includes(ch))) {
+      const bits = [];
+      const push = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >> i) & 1); };
+      push(chars.length, 6);
+      for (const ch of chars) push(this.B64.indexOf(ch), 6);
+      const bytes = new Array(this.META_BYTES).fill(0);
+      bits.forEach((b, i) => { bytes[i >> 3] |= b << (7 - (i & 7)); });
+      return { ok: true, packed: true, bytes, used: Math.ceil(bits.length / 8) };
+    }
+    const raw = this.utf8(text);
+    if (raw.length > this.META_BYTES) return { ok: false, packed: false, used: raw.length };
+    return { ok: true, packed: false, bytes: [...raw, ...new Array(this.META_BYTES - raw.length).fill(0)], used: raw.length };
+  },
+
+  decodeMeta(bytes, packed) {
+    if (packed) {
+      const read = (pos, n) => {
+        let v = 0;
+        for (let i = pos; i < pos + n; i++) v = (v << 1) | ((bytes[i >> 3] >> (7 - (i & 7))) & 1);
+        return v;
+      };
+      const len = read(0, 6);
+      if (len > this.PACKED_MAX_CHARS) return null;
+      let s = "";
+      for (let k = 0; k < len; k++) s += this.B64[read(6 + k * 6, 6)];
+      return s;
+    }
+    let end = bytes.length;
+    while (end > 0 && bytes[end - 1] === 0) end--;
+    return new TextDecoder().decode(new Uint8Array(bytes.slice(0, end)));
+  },
+
+  encodeGps(lat, lon) {
+    const a = Math.round((lat + 90) / this.GPS_STEP_LAT);
+    const o = Math.round((lon + 180) / this.GPS_STEP_LON);
+    return [a >>> 16, (a >>> 8) & 0xFF, a & 0xFF, o >>> 16, (o >>> 8) & 0xFF, o & 0xFF];
+  },
+
+  decodeGps(b) {
+    return {
+      lat: -90 + ((b[0] << 16) | (b[1] << 8) | b[2]) * this.GPS_STEP_LAT,
+      lon: -180 + ((b[3] << 16) | (b[4] << 8) | b[5]) * this.GPS_STEP_LON
+    };
+  },
+
+  // 44-byte core. Unsigned: tag = CRC-32(url) + 4 zero bytes. Signed: tag left zero for sealSigned to fill.
+  buildCore({ unixSec, gps, urlStr, metaStr, signed = false }) {
+    const meta = this.encodeMeta(metaStr);
+    if (!meta.ok) throw new Error("Serial exceeds 25 bytes");  // callers validate first; never truncate
+    const flags = (gps ? this.F_GPS : 0) | (meta.packed ? this.F_PACKED : 0) | (signed ? this.F_HMAC : 0);
+    return [
+      this.PROFILE | flags,
+      ...this.u32(unixSec),
+      ...(gps ? this.encodeGps(gps.lat, gps.lon) : [0, 0, 0, 0, 0, 0]),
+      ...(signed ? [0, 0, 0, 0, 0, 0, 0, 0] : [...this.u32(GF256.crc32(this.utf8(urlStr))), 0, 0, 0, 0]),
+      ...meta.bytes
+    ];
+  },
+
+  seal(core44) {
+    return [...core44, ...this.u32(GF256.crc32(core44))];
+  },
+
+  build(fields) {
+    return this.seal(this.buildCore(fields));
+  },
+
+  // --- Issuer signature: 8-byte truncated HMAC-SHA256 (WebCrypto) ---
+  // Signs a domain tag, the length-prefixed QR URL and every payload byte except the tag itself,
+  // so the URL, time, GPS, serial and flags (including the signed flag) can't be altered or swapped.
+  signingInput(core44, urlStr) {
+    const url = this.utf8(urlStr);
+    return new Uint8Array([
+      ...this.utf8("QX-HD/v6"), url.length >> 8, url.length & 0xFF, ...url,
+      ...core44.slice(0, 11), ...core44.slice(19, 44)
+    ]);
+  },
+
+  parseKeyHex(hex) {
+    const s = hex.trim();
+    if (!s) return { key: null };
+    if (!/^[0-9a-fA-F]{64}$/.test(s)) return { err: "Key must be 64 hex chars (32 bytes)" };
+    return { key: new Uint8Array(s.match(/../g).map(h => parseInt(h, 16))) };
+  },
+
+  async hmacTag(keyBytes, data) {
+    const k = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", k, data))).slice(0, 8);
+  },
+
+  async buildSigned(fields, keyBytes) {
+    const core44 = this.buildCore({ ...fields, signed: true });
+    const tag = await this.hmacTag(keyBytes, this.signingInput(core44, fields.urlStr));
+    tag.forEach((b, i) => { core44[11 + i] = b; });
+    return this.seal(core44);
+  },
+
+  // Recompute the tag from a decoded payload; compare without early exit
+  async verify(payload48, urlStr, keyBytes) {
+    const expect = await this.hmacTag(keyBytes, this.signingInput(payload48.slice(0, 44), urlStr));
+    let diff = 0;
+    for (let i = 0; i < 8; i++) diff |= expect[i] ^ payload48[11 + i];
+    return diff === 0;
+  },
+
+  // Assumes the codeword already passed RS + CRC-32
+  parse(cw, urlStr) {
+    const u32At = i => ((cw[i] << 24) | (cw[i + 1] << 16) | (cw[i + 2] << 8) | cw[i + 3]) >>> 0;
+    const flags = cw[0] & 0x0F;
+    const signed = !!(flags & this.F_HMAC);
+    return {
+      layout: cw[0] >> 4,
+      signed,
+      payload: cw.slice(0, 48),
+      unixSec: u32At(1),
+      gps: (flags & this.F_GPS) ? this.decodeGps(cw.slice(5, 11)) : null,
+      // Signed symbols bind the URL through the HMAC instead; check that with verify()
+      urlMatch: signed ? null : u32At(11) === GF256.crc32(this.utf8(urlStr)),
+      meta: this.decodeMeta(cw.slice(19, 44), !!(flags & this.F_PACKED))
+    };
+  }
+};
+
+class QXChronoEngine {
+  constructor() {
+    this.scratchedClusters = new Set();
+    this.SYNC_32 = [
+      1,1,1,1,1,0,0,1, 1,0,1,0,0,1,0,0,
+      0,0,1,0,1,0,1,1, 1,0,1,1,0,0,0,0
+    ];
+
+    // RS(80,48): 48 payload bytes + 32 parity bytes, corrects up to 16 unknown bad bytes
+    this.numBytes = 80;
+    this.payloadBytes = 48;
+    this.parityBytes = 32;
+    this.stride = 23;   // gcd(23, 80) = 1
+    this.offset = 7;
+  }
+
+  encodePolarState(urlStr, payload48) {
+    const logical = [...payload48, ...GF256.rsEncode(payload48, this.parityBytes)];
+
+    // ponytail: one RS block, so this stride only scatters bytes visually; it adds no correction power.
+    // Real burst protection would need several RS blocks interleaved.
+    const physical = new Array(this.numBytes).fill(0);
+    for (let i = 0; i < this.numBytes; i++) {
+      physical[(this.stride * i + this.offset) % this.numBytes] = logical[i];
+    }
+
+    // Decode what a reader would see: damaged physical bytes -> de-interleave -> RS -> CRC-32
+    const rxPhysical = [...physical];
+    for (const p of this.scratchedClusters) {
+      if (p < this.numBytes) rxPhysical[p] ^= 0xFF;
+    }
+    const rxLogical = logical.map((_, i) => rxPhysical[(this.stride * i + this.offset) % this.numBytes]);
+    const decode = this.decodePolar(rxLogical, urlStr);
+
+    // Rings 0-6 as before; ring 7 (outermost, 64 sectors) carries physical bytes 72-79, 8 sectors each
+    const ringSectors = [64, 64, 80, 80, 96, 96, 96, 64];
+    const dataRings = ringSectors.map(s => new Array(s).fill(0));
+    const cellToCluster = {};
+
+    for (let p = 0; p < 16; p++) {
+      const bVal = physical[p];
+      const startSec = p * 4;
+      for (let k = 0; k < 4; k++) {
+        dataRings[0][startSec + k] = (bVal >> (7 - k)) & 1;
+        dataRings[1][startSec + k] = (bVal >> (3 - k)) & 1;
+        cellToCluster[`0_${startSec + k}`] = p;
+        cellToCluster[`1_${startSec + k}`] = p;
+      }
+    }
+    for (let idx = 0; idx < 20; idx++) {
+      const p = 16 + idx;
+      const bVal = physical[p];
+      const startSec = idx * 4;
+      for (let k = 0; k < 4; k++) {
+        dataRings[2][startSec + k] = (bVal >> (7 - k)) & 1;
+        dataRings[3][startSec + k] = (bVal >> (3 - k)) & 1;
+        cellToCluster[`2_${startSec + k}`] = p;
+        cellToCluster[`3_${startSec + k}`] = p;
+      }
+    }
+    for (let idx = 0; idx < 44; idx++) {
+      const p = 36 + idx;
+      const bVal = physical[p];
+      const rIdx = 4 + Math.floor(idx / 12);
+      const startSec = (idx % 12) * 8;
+      for (let b = 0; b < 8; b++) {
+        dataRings[rIdx][startSec + b] = (bVal >> (7 - b)) & 1;
+        cellToCluster[`${rIdx}_${startSec + b}`] = p;
+      }
+    }
+
+    return { logical, physical, decode, dataRings, cellToCluster };
+  }
+
+  decodePolar(rxLogical, urlStr, erasures = []) {
+    const crcOk = cw => {
+      const c = GF256.crc32(cw.slice(0, 44));
+      return cw[44] === (c >>> 24) && cw[45] === ((c >>> 16) & 0xFF) && cw[46] === ((c >>> 8) & 0xFF) && cw[47] === (c & 0xFF);
+    };
+    // Errors-only for now; a camera reader can pass low-confidence byte positions as erasures (up to 32)
+    let cw = GF256.rsDecode(rxLogical, this.parityBytes, erasures);
+    if (cw && !crcOk(cw)) cw = null;  // beyond capacity RS can land on a wrong codeword; CRC-32 rejects it
+    if (!cw) return { ok: false };
+    // A valid codeword from a different payload layout must not be read with the v6 field map
+    if ((cw[0] >> 4) !== QXPayloadV6.PROFILE >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
+    return {
+      ok: true,
+      corrected: cw.filter((b, i) => b !== rxLogical[i]).length,
+      ...QXPayloadV6.parse(cw, urlStr)
+    };
+  }
+
+  petalArcPath(rIn, rOut, t0Deg, t1Deg, insetMm, roundedPetal) {
+    const r1 = rIn + insetMm;
+    const r2 = rOut - insetMm;
+    const midR = (r1 + r2) / 2.0;
+    const angInset = midR > 0 ? (insetMm / midR) * (180 / Math.PI) : 0;
+
+    const a0 = (t0Deg + angInset - 90.0) * (Math.PI / 180.0);
+    const a1 = (t1Deg - angInset - 90.0) * (Math.PI / 180.0);
+    const span = (t1Deg - t0Deg) - 2 * angInset;
+    const largeArc = span > 180.0 ? 1 : 0;
+
+    const x1In = r1 * Math.cos(a0), y1In = r1 * Math.sin(a0);
+    const x2In = r1 * Math.cos(a1), y2In = r1 * Math.sin(a1);
+    const x2Out = r2 * Math.cos(a1), y2Out = r2 * Math.sin(a1);
+    const x1Out = r2 * Math.cos(a0), y1Out = r2 * Math.sin(a0);
+
+    if (roundedPetal && span < 12) {
+      const aMid = (a0 + a1) / 2.0;
+      const rPeak = r2 + 0.04;
+      const xPeak = rPeak * Math.cos(aMid), yPeak = rPeak * Math.sin(aMid);
+      return `M ${x1In.toFixed(3)} ${y1In.toFixed(3)} ` +
+             `L ${x1Out.toFixed(3)} ${y1Out.toFixed(3)} ` +
+             `Q ${xPeak.toFixed(3)} ${yPeak.toFixed(3)} ${x2Out.toFixed(3)} ${y2Out.toFixed(3)} ` +
+             `L ${x2In.toFixed(3)} ${y2In.toFixed(3)} ` +
+             `A ${r1.toFixed(3)} ${r1.toFixed(3)} 0 0 0 ${x1In.toFixed(3)} ${y1In.toFixed(3)} Z`;
+    }
+
+    return `M ${x1In.toFixed(3)} ${y1In.toFixed(3)} ` +
+           `L ${x1Out.toFixed(3)} ${y1Out.toFixed(3)} ` +
+           `A ${r2.toFixed(3)} ${r2.toFixed(3)} 0 ${largeArc} 1 ${x2Out.toFixed(3)} ${y2Out.toFixed(3)} ` +
+           `L ${x2In.toFixed(3)} ${y2In.toFixed(3)} ` +
+           `A ${r1.toFixed(3)} ${r1.toFixed(3)} 0 ${largeArc} 0 ${x1In.toFixed(3)} ${y1In.toFixed(3)} Z`;
+  }
+
+  renderDisguisedFinder(cx, cy, modMm) {
+    const rOuter = 3.5 * modMm;
+    const rGap = 2.5 * modMm;
+    const rCore = 1.5 * modMm;
+    return `
+      <g transform="translate(${cx.toFixed(3)}, ${cy.toFixed(3)})">
+        <rect x="${(-rOuter).toFixed(3)}" y="${(-rOuter).toFixed(3)}" width="${(rOuter*2).toFixed(3)}" height="${(rOuter*2).toFixed(3)}" rx="${(rOuter*0.68).toFixed(3)}" fill="#000000" />
+        <rect x="${(-rGap).toFixed(3)}" y="${(-rGap).toFixed(3)}" width="${(rGap*2).toFixed(3)}" height="${(rGap*2).toFixed(3)}" rx="${(rGap*0.68).toFixed(3)}" fill="#FFFFFF" />
+        <circle cx="0" cy="0" r="${(rCore*1.04).toFixed(3)}" fill="#000000" />
+      </g>`;
+  }
+
+  renderChronoMandala(urlStr, metaStr, chronoStr, opts) {
+    const { dotScale, colorChrono, showEmblem, showGuides, forExport, logo, gps = null, payload48 } = opts;
+    const qrInfo = MultiVersionMatrix.encodeUrlToMatrix(urlStr);
+    const chronoData = QXChronoRegister.encodeTimestampTo48Bits(chronoStr);
+    // Callers pass a (possibly signed) payload; fall back to an unsigned one
+    const polarState = this.encodePolarState(urlStr,
+      payload48 || QXPayloadV6.build({ unixSec: chronoData.unixSec, gps, urlStr, metaStr }));
+    const parts = [];
+
+    // 1. 30mm Circular Medallion Substrate
+    parts.push(`<circle cx="0" cy="0" r="15.000" fill="#FFFFFF" />`);
+
+    // 2. Outer Decorative & RANSAC Reference Crown (r = 14.20 to 14.55 mm)
+    parts.push(
+      `<path d="M 0 -14.550 A 14.550 14.550 0 1 1 0 14.550 A 14.550 14.550 0 1 1 0 -14.550 ` +
+      `M 0 -14.200 A 14.200 14.200 0 1 0 0 14.200 A 14.200 14.200 0 1 0 0 -14.200 Z" fill="#000000" fill-rule="evenodd" />`
+    );
+    for (let t = 0; t < 64; t += 2) {
+      const d = this.petalArcPath(14.55, 14.82, t * (360/64), (t + 0.7) * (360/64), 0.0, false);
+      parts.push(`<path d="${d}" fill="#000000" />`);
+    }
+
+    // 3. Inner Coaxial RANSAC Ring (r = 8.08 to 8.26 mm)
+    parts.push(
+      `<path d="M 0 -8.260 A 8.260 8.260 0 1 1 0 8.260 A 8.260 8.260 0 1 1 0 -8.260 ` +
+      `M 0 -8.080 A 8.080 8.080 0 1 0 0 8.080 A 8.080 8.080 0 1 0 0 -8.080 Z" fill="#000000" fill-rule="evenodd" />`
+    );
+
+    // Size the core so its ISO 18004 quiet zone (4 modules, a square) fits inside the inner ring:
+    // corner of the quiet square at radius <= 8.0 mm, i.e. half-width + 4 modules <= 8.0 / sqrt(2)
+    const S = qrInfo.size;
+    const QUIET_MODULES = 4;
+    const quietHalfMm = 8.0 / Math.SQRT2;                              // 5.657 mm
+    const footprintMm = Math.min(10.60, quietHalfMm / (0.5 + QUIET_MODULES / S));
+    const modMm = footprintMm / S;
+    const halfMm = footprintMm / 2.0;
+    const quietMm = halfMm + QUIET_MODULES * modMm;                    // light square, no marks inside
+
+    // 4. Render 48-Bit Chrono-Spokes inside the 4 Cardinal Crescents (Top: 0 deg, Right: 90 deg, Bottom: 180 deg, Left: 270 deg)
+    // Each crescent spans [-33 deg, +33 deg] around its cardinal center, divided into 12 radial spokes (5.5 deg per spoke)
+    const cardinalCenters = [0, 90, 180, 270];
+    const spokeFill = (!forExport && colorChrono) ? "#9333ea" : "#000000";
+
+    for (let q = 0; q < 4; q++) {
+      const centerDeg = cardinalCenters[q];
+      const crescentBits = chronoData.crescents[q]; // 12 bits (Bit 0 = sync anchor '1', Bits 1..11 = Timestamp/CRC-8)
+
+      for (let s = 0; s < 12; s++) {
+        const degOffset = -30.25 + s * 5.5;
+        const spokeDeg = (centerDeg + degOffset + 360) % 360;
+        // Start each spoke outside the quiet square across its whole angular width (petal spans ±1.95°)
+        const quietRadiusAt = deg => {
+          const rad = (deg - 90) * (Math.PI / 180);
+          return quietMm / Math.max(Math.abs(Math.cos(rad)), Math.abs(Math.sin(rad)));
+        };
+        const rSquareClearance = Math.max(quietRadiusAt(spokeDeg - 1.95), quietRadiusAt(spokeDeg), quietRadiusAt(spokeDeg + 1.95)) + 0.05;
+        const rOuterCrescent = 7.90;
+
+        if (crescentBits[s] === 1) {
+          const d = this.petalArcPath(rSquareClearance, rOuterCrescent, spokeDeg - 1.95, spokeDeg + 1.95, 0.0, true);
+          parts.push(`<path d="${d}" fill="${spokeFill}" />`);
+        } else if (!forExport && showGuides) {
+          // Subtle slot guide for '0' bits when guides are active
+          const d = this.petalArcPath(rSquareClearance, rOuterCrescent, spokeDeg - 1.5, spokeDeg + 1.5, 0.0, false);
+          parts.push(`<path d="${d}" fill="none" stroke="#a855f7" stroke-width="0.04" stroke-opacity="0.45" />`);
+        }
+      }
+    }
+
+    // 5. Render Disguised Orbital Finders & Micro-Dot Mandala Core
+    const fOffset = halfMm - 3.5 * modMm;
+    parts.push(this.renderDisguisedFinder(-fOffset, -fOffset, modMm));
+    parts.push(this.renderDisguisedFinder( fOffset, -fOffset, modMm));
+    parts.push(this.renderDisguisedFinder(-fOffset,  fOffset, modMm));
+
+    const dotR = modMm * dotScale;
+    // Emblem/logo hole sized per code so it uses at most half of each block's error correction
+    const centerSkipR = (showEmblem || logo) ? MultiVersionMatrix.safeHoleRadius(qrInfo, halfMm, modMm) : 0.0;
+    const em = centerSkipR / 1.35;  // emblem/logo artwork scales with the hole; outer edge = hole edge
+
+    for (let r = 0; r < S; r++) {
+      for (let c = 0; c < S; c++) {
+        if (qrInfo.isFinder[r][c]) continue;
+        const cx = -halfMm + (c + 0.5) * modMm;
+        const cy = -halfMm + (r + 0.5) * modMm;
+        if (Math.hypot(cx, cy) < centerSkipR) continue;
+
+        if (qrInfo.grid[r][c] === 1) {
+          const angDeg = Math.atan2(cy, cx) * (180 / Math.PI) + 90;
+          parts.push(
+            `<rect x="${(cx - dotR).toFixed(3)}" y="${(cy - dotR*1.08).toFixed(3)}" ` +
+            `width="${(dotR*2).toFixed(3)}" height="${(dotR*2.16).toFixed(3)}" ` +
+            `rx="${(dotR*0.88).toFixed(3)}" transform="rotate(${angDeg.toFixed(1)} ${cx.toFixed(3)} ${cy.toFixed(3)})" fill="#000000" />`
+          );
+        }
+      }
+    }
+
+    const f = v => (v * em).toFixed(3);
+    if (logo && em > 0) {
+      parts.push(`<circle cx="0" cy="0" r="${f(1.29)}" fill="#FFFFFF" stroke="#000000" stroke-width="${f(0.12)}" />`);
+      parts.push(`<clipPath id="qx-logo-clip"><circle cx="0" cy="0" r="${f(1.17)}" /></clipPath>`);
+      parts.push(
+        `<image href="${logo}" xlink:href="${logo}" x="-${f(1.17)}" y="-${f(1.17)}" width="${f(2.34)}" height="${f(2.34)}" ` +
+        `preserveAspectRatio="xMidYMid meet" clip-path="url(#qx-logo-clip)" />`
+      );
+    } else if (showEmblem && em > 0) {
+      parts.push(`<circle cx="0" cy="0" r="${f(1.24)}" fill="#FFFFFF" stroke="#000000" stroke-width="${f(0.22)}" />`);
+      parts.push(`<circle cx="0" cy="0" r="${f(0.80)}" fill="#000000" />`);
+      parts.push(`<circle cx="0" cy="0" r="${f(0.31)}" fill="#FFFFFF" />`);
+    }
+
+    // 6. Render Outer QX-HD Harmonic Polar Rings (80-Byte RS(80,48) Codeword)
+    const ringSpecs = [
+      { rIn: 8.35,  rOut: 8.90,  sectors: 32, type: "SYNC" },
+      { rIn: 9.00,  rOut: 9.62,  sectors: 64, type: "DATA", ringIdx: 0 },
+      { rIn: 9.62,  rOut: 10.24, sectors: 64, type: "DATA", ringIdx: 1 },
+      { rIn: 10.34, rOut: 10.96, sectors: 80, type: "DATA", ringIdx: 2 },
+      { rIn: 10.96, rOut: 11.58, sectors: 80, type: "DATA", ringIdx: 3 },
+      { rIn: 11.68, rOut: 12.28, sectors: 96, type: "DATA", ringIdx: 4 },
+      { rIn: 12.28, rOut: 12.88, sectors: 96, type: "DATA", ringIdx: 5 },
+      { rIn: 12.88, rOut: 13.48, sectors: 96, type: "DATA", ringIdx: 6 },
+      { rIn: 13.56, rOut: 14.08, sectors: 64, type: "DATA", ringIdx: 7 }
+    ];
+
+    for (const ring of ringSpecs) {
+      const bits = ring.type === "SYNC" ? this.SYNC_32 : polarState.dataRings[ring.ringIdx];
+      const stepDeg = 360.0 / ring.sectors;
+
+      for (let s = 0; s < ring.sectors; s++) {
+        const cIdx = ring.type === "DATA" ? polarState.cellToCluster[`${ring.ringIdx}_${s}`] : undefined;
+        const isScratched = cIdx !== undefined && this.scratchedClusters.has(cIdx);
+
+        const d = this.petalArcPath(ring.rIn, ring.rOut, s * stepDeg, (s + 1) * stepDeg, 0.018, true);
+
+        if (bits[s] === 1) {
+          const fill = (!forExport && isScratched) ? "#dc2626" : "#000000";
+          parts.push(`<path d="${d}" fill="${fill}" ${cIdx !== undefined && !forExport ? `data-cluster="${cIdx}"` : ""} />`);
+        } else if (!forExport && isScratched) {
+          parts.push(`<path d="${d}" fill="#fca5a5" data-cluster="${cIdx}" />`);
+        } else if (!forExport && cIdx !== undefined) {
+          parts.push(`<path d="${d}" fill="transparent" data-cluster="${cIdx}" />`);
+        }
+      }
+    }
+
+    if (showGuides && !forExport) {
+      parts.push(`<g stroke="#38bdf8" stroke-width="0.05" stroke-dasharray="0.2,0.2" pointer-events="none">`);
+      ringSpecs.forEach(r => parts.push(`<circle cx="0" cy="0" r="${r.rIn}" fill="none" />`));
+      for (let j = 0; j < 16; j++) {
+        const a = (j * 22.5 - 90) * (Math.PI / 180);
+        parts.push(`<line x1="${(8.1*Math.cos(a)).toFixed(2)}" y1="${(8.1*Math.sin(a)).toFixed(2)}" x2="${(14.1*Math.cos(a)).toFixed(2)}" y2="${(14.1*Math.sin(a)).toFixed(2)}" />`);
+      }
+      parts.push(`</g>`);
+    }
+
+    return { svgGroup: parts.join("\n    "), qrInfo, chronoData, polarState, holeMm: centerSkipR };
+  }
+}
+
+/**
+ * ============================================================================
+ * 5. UI Controller & Live Second-Precision Clock
+ * ============================================================================
+ */
+const chronoEngine = new QXChronoEngine();
+let liveTickInterval = null;
+let logoDataUrl = null;
+
+const ui = {
+  qrUrl: document.getElementById("qr-url"),
+  qxMeta: document.getElementById("qx-meta"),
+  metaCounter: document.getElementById("meta-byte-counter"),
+  chronoIso: document.getElementById("chrono-iso"),
+  chronoEpochVal: document.getElementById("chrono-epoch-val"),
+  urlCounter: document.getElementById("url-byte-counter"),
+  dotScale: document.getElementById("dot-scale"),
+  dotScaleVal: document.getElementById("dot-scale-val"),
+  chkColorChrono: document.getElementById("chk-color-chrono"),
+  chkEmblem: document.getElementById("chk-emblem"),
+  chkGuides: document.getElementById("chk-guides"),
+  svgContainer: document.getElementById("svg-container"),
+  decodedTimeDisplay: document.getElementById("decoded-time-display"),
+  qrStatusText: document.getElementById("qr-status-text"),
+  polarStatus: document.getElementById("polar-status"),
+  polarStatusText: document.getElementById("polar-status-text"),
+  crcBadge: document.getElementById("crc-badge"),
+  statBudget: document.getElementById("stat-budget"),
+  chronoBitDump: document.getElementById("chrono-bit-dump"),
+  codewordDump: document.getElementById("codeword-dump"),
+  btnToggleLive: document.getElementById("btn-toggle-live"),
+  gpsCoords: document.getElementById("gps-coords"),
+  gpsVal: document.getElementById("gps-val"),
+  gpsStatus: document.getElementById("gps-status"),
+  decodedGps: document.getElementById("decoded-gps"),
+  issuerKey: document.getElementById("issuer-key"),
+  keyStatus: document.getElementById("key-status"),
+  sigStatus: document.getElementById("sig-status"),
+  sigStatusText: document.getElementById("sig-status-text"),
+  centerNote: document.getElementById("center-note"),
+  urlNote: document.getElementById("url-note")
+};
+
+// Query parameters that only track clicks; removing them never changes the page a link opens
+const TRACKING_PARAMS = new Set([
+  "fbclid", "gclid", "gbraid", "wbraid", "dclid", "msclkid", "yclid", "ttclid", "twclid",
+  "igshid", "igsh", "mc_cid", "mc_eid", "_ga", "_gl", "utlId"
+]);
+const isTrackingParam = name => name.toLowerCase().startsWith("utm_") || TRACKING_PARAMS.has(name);
+
+// Returns the URL untouched unless something was removed (URL() would otherwise normalise it)
+function stripTracking(text) {
+  let u;
+  try { u = new URL(text.trim()); } catch (_) { return { url: text, removed: [], invalid: true }; }
+  const removed = [...new Set([...u.searchParams.keys()].filter(isTrackingParam))];
+  if (!removed.length) return { url: text, removed };
+  removed.forEach(k => u.searchParams.delete(k));
+  return { url: u.href, removed };
+}
+
+function parseGps(text) {
+  const s = text.trim();
+  if (!s) return { value: null };
+  const m = s.match(/^([+-]?\d{1,3}(?:\.\d+)?)\s*,\s*([+-]?\d{1,3}(?:\.\d+)?)$/);
+  if (!m) return { err: "Use: lat, lon (decimal)" };
+  const lat = Number(m[1]), lon = Number(m[2]);
+  if (lat < -90 || lat > 90) return { err: "Latitude must be -90 to 90" };
+  if (lon < -180 || lon > 180) return { err: "Longitude must be -180 to 180" };
+  return { value: { lat, lon } };
+}
+
+// Single source of truth for input checks, shared by the preview and the SVG export
+function readInputs() {
+  // Encode exactly what was typed minus surrounding whitespace; never substitute a URL
+  const urlStr = ui.qrUrl.value.trim();
+  const metaStr = ui.qxMeta.value || "";
+  const chronoStr = ui.chronoIso.value;
+  const errors = {};
+
+  const urlRaw = Array.from(new TextEncoder().encode(urlStr));
+  const urlBytes = urlRaw.length;
+  if (!urlStr) {
+    errors.url = "Enter a URL";
+  } else if (/\s/.test(urlStr)) {
+    errors.url = "URL contains spaces or line breaks";
+  } else if (!MultiVersionMatrix.selectVersion(urlRaw)) {
+    errors.url = `URL is ${urlBytes} B (max ${MultiVersionMatrix.needsEci(urlRaw) ? 105 : 106} B)` +
+      (stripTracking(urlStr).removed.length ? ": try Strip Tracking" : "");
+  }
+  // Still encodable, but phones may treat it as plain text or refuse to open it
+  const urlWarn = urlStr && !errors.url && !/^https?:\/\/[^/?#]+/i.test(urlStr)
+    ? "Not an http(s) link: many phones will show it as plain text" : "";
+  const ts = QXChronoRegister.parseStrict(chronoStr);
+  if (!ts.ok) errors.ts = ts.err;
+  const gps = parseGps(ui.gpsCoords.value);
+  if (gps.err) errors.gps = gps.err;
+  const meta = QXPayloadV6.encodeMeta(metaStr);
+  if (!meta.ok) errors.meta = `Serial is ${meta.used} B (max ${QXPayloadV6.META_BYTES})`;
+  const k = QXPayloadV6.parseKeyHex(ui.issuerKey.value);
+  if (k.err) errors.key = k.err;
+  else if (k.key && !(window.crypto && crypto.subtle)) errors.key = "Signing needs HTTPS or localhost";
+
+  return { urlStr, metaStr, chronoStr, gps: gps.value || null, meta, urlBytes, key: k.key || null, unixSec: ts.unixSec, urlWarn, errors };
+}
+
+// Signed when an issuer key is present, otherwise the unsigned CRC-bound payload
+async function buildPayload(inp) {
+  const fields = { unixSec: inp.unixSec, gps: inp.gps, urlStr: inp.urlStr, metaStr: inp.metaStr };
+  return inp.key ? QXPayloadV6.buildSigned(fields, inp.key) : QXPayloadV6.build(fields);
+}
+
+const setVal = (el, text, isErr) => { el.textContent = text; el.style.color = isErr ? "var(--danger)" : ""; };
+
+function setTimestampNow() {
+  const now = new Date();
+  ui.chronoIso.value = now.toISOString().slice(0, 19) + "Z";
+}
+setTimestampNow();
+
+let renderSeq = 0;
+let stripNote = null;  // { url, text } from the last Strip Tracking click
+
+async function renderApp() {
+  const seq = ++renderSeq;
+  const inp = readInputs();
+  const { urlStr, metaStr, chronoStr, gps, meta, key, errors } = inp;
+  const dotScale = parseFloat(ui.dotScale.value);
+  ui.dotScaleVal.textContent = `${dotScale.toFixed(2)} mod`;
+
+  setVal(ui.metaCounter, meta.ok
+    ? `${meta.used} / ${QXPayloadV6.META_BYTES} B${meta.packed ? " packed" : " UTF-8"}`
+    : `${meta.used} / ${QXPayloadV6.META_BYTES} B too long`, !!errors.meta);
+  setVal(ui.gpsVal, errors.gps || (gps ? "Included (~1-2 m)" : "Not included"), !!errors.gps);
+  if (errors.url) setVal(ui.urlCounter, errors.url, true);
+  setVal(ui.urlNote, inp.urlWarn || (stripNote && stripNote.url === ui.qrUrl.value ? stripNote.text : ""), !!inp.urlWarn);
+  if (errors.ts) setVal(ui.chronoEpochVal, errors.ts, true);
+  setVal(ui.keyStatus, errors.key || (key ? "Signing (HMAC-SHA256, 64-bit)" : "Unsigned"), !!errors.key);
+
+  // Invalid input: say so and keep the last valid drawing; never encode a guessed or truncated value
+  const errList = Object.values(errors);
+  if (errList.length) {
+    ui.polarStatus.className = "status-pill status-fail";
+    ui.polarStatusText.textContent = `INPUT ERROR: ${errList[0]}`;
+    ui.crcBadge.textContent = "FIX INPUTS";
+    // Don't leave results from the last valid render on screen
+    ui.sigStatus.className = ui.gpsStatus.className = "status-pill status-warn";
+    ui.sigStatusText.textContent = ui.decodedGps.textContent = "—";
+    return;
+  }
+
+  const payload48 = await buildPayload(inp);
+  if (seq !== renderSeq) return;  // a newer render started while signing
+
+  const { svgGroup, qrInfo, chronoData, polarState, holeMm } = chronoEngine.renderChronoMandala(
+    urlStr, metaStr, chronoStr, {
+      dotScale,
+      colorChrono: ui.chkColorChrono.checked,
+      showEmblem: ui.chkEmblem.checked,
+      showGuides: ui.chkGuides.checked,
+      forExport: false,
+      logo: logoDataUrl,
+      payload48
+    }
+  );
+
+  setVal(ui.urlCounter, `${qrInfo.byteLen} B · V${qrInfo.version}-M · mask ${qrInfo.mask}${qrInfo.eci ? " · UTF-8 ECI" : ""}`, false);
+  setVal(ui.chronoEpochVal, `+${chronoData.deltaSec}s (CRC8: 0x${chronoData.crc8Val.toString(16).toUpperCase().padStart(2, "0")})`, false);
+
+  // Decode the 48 Chrono-Spokes to verify round-trip accuracy
+  const decodedChrono = QXChronoRegister.decode48BitsToISO(chronoData.flat48);
+  ui.decodedTimeDisplay.textContent = `${decodedChrono.isoText} [${decodedChrono.valid ? "CRC8 OK" : "ERR"}]`;
+
+  ui.svgContainer.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15.2 -15.2 30.4 30.4" shape-rendering="geometricPrecision">
+      <g id="QX_Chrono_Mandala">${svgGroup}</g>
+    </svg>
+  `;
+
+  ui.svgContainer.querySelectorAll("[data-cluster]").forEach(el => {
+    el.addEventListener("click", (e) => {
+      const cIdx = parseInt(e.target.getAttribute("data-cluster"), 10);
+      if (chronoEngine.scratchedClusters.has(cIdx)) {
+        chronoEngine.scratchedClusters.delete(cIdx);
+      } else {
+        chronoEngine.scratchedClusters.add(cIdx);
+      }
+      renderApp();
+    });
+  });
+
+  // Display 48 Chrono-Spokes grouped by Crescent (Top, Right, Bottom, Left)
+  const qNames = ["TOP   ", "RIGHT ", "BOTTOM", "LEFT  "];
+  ui.chronoBitDump.innerHTML = chronoData.crescents.map((bits, q) => {
+    const syncBit = `<span style="color:#38bdf8;font-weight:bold;">[${bits[0]}]</span>`;
+    const dataBits = bits.slice(1).map(b => b ? `<span style="color:#d8b4fe;font-weight:bold;">1</span>` : `<span style="color:#475569;">0</span>`).join("");
+    return `${qNames[q]}: ${syncBit} ${dataBits}`;
+  }).join("<br/>");
+
+  ui.qrStatusText.textContent = `V${qrInfo.version} (${qrInfo.size}x${qrInfo.size}) CAMOUFLAGED READY`;
+
+  // The centre hole is capped at half of each block's error correction; say so when it shrinks or vanishes
+  const wantsCenter = ui.chkEmblem.checked || !!logoDataUrl;
+  setVal(ui.centerNote, !wantsCenter ? "" : holeMm > 0
+    ? `Centre mark: ${(holeMm * 2).toFixed(1)} mm wide (safe size for V${qrInfo.version})`
+    : `Centre mark hidden: V${qrInfo.version} has too little error correction for a safe logo`, holeMm === 0 && wantsCenter);
+
+  // Polar status comes from actually decoding the (possibly scratched) bytes, not from the encoder's state
+  const dec = polarState.decode;
+  ui.statBudget.textContent = dec.ok ? `${dec.corrected} / 16` : "FAILED";
+
+  // GPS round-trips within one quantization step
+  const gpsMatch = dec.ok && (gps
+    ? !!dec.gps && Math.abs(dec.gps.lat - gps.lat) <= QXPayloadV6.GPS_STEP_LAT &&
+      Math.abs(dec.gps.lon - gps.lon) <= QXPayloadV6.GPS_STEP_LON
+    : !dec.gps);
+  if (dec.ok && dec.gps) {
+    ui.gpsStatus.className = `status-pill ${gpsMatch ? "status-ok" : "status-fail"}`;
+    ui.decodedGps.textContent = `${dec.gps.lat.toFixed(6)}, ${dec.gps.lon.toFixed(6)}`;
+  } else {
+    ui.gpsStatus.className = "status-pill status-warn";
+    ui.decodedGps.textContent = dec.ok ? "NOT INCLUDED" : "UNREADABLE";
+  }
+
+  // Signature check on the decoded bytes (needs the issuer key); unsigned symbols fall back to the URL CRC
+  let sigOk = null;
+  if (dec.ok && dec.signed && key) {
+    sigOk = await QXPayloadV6.verify(dec.payload, urlStr, key);
+    if (seq !== renderSeq) return;
+  }
+  if (!dec.ok) {
+    ui.sigStatus.className = "status-pill status-fail";
+    ui.sigStatusText.textContent = "UNREADABLE";
+  } else if (!dec.signed) {
+    ui.sigStatus.className = "status-pill status-warn";
+    ui.sigStatusText.textContent = "UNSIGNED (CRC BINDING ONLY)";
+  } else {
+    ui.sigStatus.className = `status-pill ${sigOk ? "status-ok" : "status-fail"}`;
+    ui.sigStatusText.textContent = sigOk ? "HMAC VERIFIED" : (key ? "SIGNATURE INVALID" : "SIGNED (NO KEY TO VERIFY)");
+  }
+  const bound = dec.signed ? sigOk === true : dec.urlMatch;
+
+  if (dec.ok && dec.meta === metaStr && bound && gpsMatch) {
+    ui.polarStatus.className = "status-pill status-ok";
+    ui.polarStatusText.textContent = dec.corrected === 0
+      ? "80/80 BYTES INTACT"
+      : `RECOVERED (${dec.corrected}B CORRECTED)`;
+    ui.crcBadge.textContent = dec.signed ? "HMAC + CRC VALID" : "CRC-32 + CRC-8 VALID";
+  } else {
+    ui.polarStatus.className = "status-pill status-fail";
+    ui.polarStatusText.textContent = dec.ok ? "DECODED BUT MISMATCH"
+      : dec.unknownLayout !== undefined ? `UNKNOWN PAYLOAD LAYOUT v${dec.unknownLayout}`
+      : "DECODE FAILED (>16 BAD BYTES)";
+    ui.crcBadge.textContent = "DECODE HALTED";
+  }
+
+  // Dual redundancy: the polar layer carries its own copy of the timestamp
+  const polarTs = dec.ok ? (dec.unixSec === decodedChrono.unixSec ? " · POLAR TS MATCH" : " · POLAR TS MISMATCH") : "";
+  ui.decodedTimeDisplay.textContent = `${decodedChrono.isoText} [${decodedChrono.valid ? "CRC8 OK" : "ERR"}${polarTs}]`;
+
+  ui.codewordDump.innerHTML = polarState.logical.map((b, i) => {
+    const p = (chronoEngine.stride * i + chronoEngine.offset) % chronoEngine.numBytes;
+    const isScratched = chronoEngine.scratchedClusters.has(p);
+    const isParity = i >= chronoEngine.payloadBytes;
+    const cls = ["byte-chip", isParity ? "parity" : "", isScratched ? "scratched" : ""].join(" ");
+    return `<span class="${cls}" title="Logical B${i} -> Physical P${p}">${b.toString(16).toUpperCase().padStart(2, "0")}</span>`;
+  }).join("");
+}
+
+[ui.qrUrl, ui.qxMeta, ui.chronoIso, ui.gpsCoords, ui.issuerKey, ui.dotScale, ui.chkColorChrono, ui.chkEmblem, ui.chkGuides].forEach(el => {
+  el.addEventListener("input", renderApp);
+});
+
+document.getElementById("btn-gps-locate").addEventListener("click", () => {
+  if (!navigator.geolocation) { setVal(ui.gpsVal, "Location not available", true); return; }
+  setVal(ui.gpsVal, "Locating…", false);
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      ui.gpsCoords.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+      renderApp();
+    },
+    err => setVal(ui.gpsVal, err.code === 1 ? "Permission denied" : "Location unavailable", true),
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+});
+
+document.getElementById("btn-strip-tracking").addEventListener("click", async () => {
+  const before = new TextEncoder().encode(ui.qrUrl.value.trim()).length;
+  const { url, removed, invalid } = stripTracking(ui.qrUrl.value);
+  ui.qrUrl.value = url;
+  const after = new TextEncoder().encode(url.trim()).length;
+  // Shown by renderApp for as long as the URL stays this exact value
+  stripNote = {
+    url,
+    text: invalid ? "Not a full URL (needs https://…)"
+      : removed.length ? `Removed ${removed.join(", ")} (${before} → ${after} B)`
+      : "No tracking parameters found"
+  };
+  await renderApp();
+});
+
+document.getElementById("btn-key-generate").addEventListener("click", async () => {
+  if (ui.issuerKey.value.trim() && !confirm("Replace the current key? Symbols signed with it will no longer verify against the new one.")) return;
+  const hex = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
+  ui.issuerKey.value = hex;
+  let copied = false;
+  try { await navigator.clipboard.writeText(hex); copied = true; } catch (_) { /* clipboard blocked; user can use Show Key */ }
+  await renderApp();
+  setVal(ui.keyStatus, copied ? "New key copied; store it safely" : "New key; use Show Key to copy it", false);
+});
+
+document.getElementById("btn-key-clear").addEventListener("click", () => {
+  ui.issuerKey.value = "";
+  renderApp();
+});
+
+document.getElementById("chk-show-key").addEventListener("change", (e) => {
+  ui.issuerKey.type = e.target.checked ? "text" : "password";
+});
+
+document.getElementById("btn-gps-clear").addEventListener("click", () => {
+  ui.gpsCoords.value = "";
+  renderApp();
+});
+
+document.getElementById("btn-stamp-now").addEventListener("click", () => {
+  setTimestampNow();
+  renderApp();
+});
+
+ui.btnToggleLive.addEventListener("click", () => {
+  if (liveTickInterval) {
+    clearInterval(liveTickInterval);
+    liveTickInterval = null;
+    ui.btnToggleLive.textContent = "Live Tick: OFF";
+    ui.btnToggleLive.classList.remove("chrono-btn");
+  } else {
+    setTimestampNow();
+    renderApp();
+    liveTickInterval = setInterval(() => {
+      setTimestampNow();
+      renderApp();
+    }, 1000);
+    ui.btnToggleLive.textContent = "Live Tick: ON (1s)";
+    ui.btnToggleLive.classList.add("chrono-btn");
+  }
+});
+
+document.getElementById("btn-scratch-slash").addEventListener("click", () => {
+  chronoEngine.scratchedClusters.clear();
+  [0, 1, 2, 8, 9, 16, 17, 18, 25, 26, 36, 37, 38, 39, 52, 53, 54, 55].forEach(c => chronoEngine.scratchedClusters.add(c));
+  renderApp();
+});
+
+const logoInput = document.getElementById("logo-file");
+const logoStatus = document.getElementById("logo-status");
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+
+logoInput.addEventListener("change", () => {
+  const file = logoInput.files[0];
+  if (!file) return;
+  if (!LOGO_TYPES.includes(file.type) || file.size > 2 * 1024 * 1024) {
+    logoStatus.textContent = "Rejected: PNG/JPG/SVG/WebP ≤ 2 MB";
+    logoInput.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    logoDataUrl = reader.result;
+    logoStatus.textContent = file.name.length > 22 ? file.name.slice(0, 20) + "…" : file.name;
+    renderApp();
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("btn-clear-logo").addEventListener("click", () => {
+  logoDataUrl = null;
+  logoInput.value = "";
+  logoStatus.textContent = "None";
+  renderApp();
+});
+
+document.getElementById("btn-clear-damage").addEventListener("click", () => {
+  chronoEngine.scratchedClusters.clear();
+  renderApp();
+});
+
+document.getElementById("btn-download-svg").addEventListener("click", async () => {
+  const inp = readInputs();
+  const { urlStr, metaStr, chronoStr, errors } = inp;
+  const errList = Object.values(errors);
+  if (errList.length) {
+    alert(`Fix these before exporting:\n- ${errList.join("\n- ")}`);
+    return;
+  }
+  // The key is used only to compute the tag; the SVG carries the tag, never the key
+  const payload48 = await buildPayload(inp);
+  const { svgGroup } = chronoEngine.renderChronoMandala(urlStr, metaStr, chronoStr, {
+    dotScale: parseFloat(ui.dotScale.value),
+    colorChrono: false, // Export pure monochrome #000000 for UV/Thermal/Laser printing
+    showEmblem: ui.chkEmblem.checked,
+    showGuides: false,
+    forExport: true,
+    logo: logoDataUrl,
+    payload48
+  });
+
+  const xmlEsc = s => s.replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]));
+  const svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="30mm" height="30mm" viewBox="-15 -15 30 30" shape-rendering="geometricPrecision">
+  <title>QX-HD 30mm Chrono-Mandala (${xmlEsc(urlStr)} @ ${xmlEsc(chronoStr)})</title>
+  <g id="QX_HD_Chrono_30mm">${svgGroup}</g>
+</svg>`;
+
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `qx_hd_chrono_30mm.svg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+
+// Self-check for the polar RS decoder. Run `runPolarSelfTest()` in the console; it throws on any failure.
+function runPolarSelfTest(trials = 300) {
+  const rnd = n => Math.floor(Math.random() * n);
+  const pick = (k, avoid = new Set()) => {
+    const s = new Set();
+    while (s.size < k) { const p = rnd(80); if (!avoid.has(p)) s.add(p); }
+    return [...s];
+  };
+  const corrupt = (cw, positions) => positions.forEach(p => { cw[p] ^= 1 + rnd(255); });
+  let tally = { fixed: 0, rejected: 0 };
+  for (let t = 0; t < trials; t++) {
+    const data = Array.from({ length: 48 }, () => rnd(256));
+    const cw = [...data, ...GF256.rsEncode(data, 32)];
+    if (t === 0 && Array.from({ length: 32 }, (_, i) => GF256.polyEval(cw, GF256.pow2(i))).some(s => s)) {
+      throw new Error("clean codeword has non-zero syndromes");
+    }
+    const f = rnd(33), e = rnd(Math.floor((32 - f) / 2) + 1);   // any mix with 2e + f <= 32
+    const eras = pick(f), errs = pick(e, new Set(eras));
+    const rx = [...cw]; corrupt(rx, [...eras, ...errs]);
+    const out = GF256.rsDecode(rx, 32, eras);
+    if (!out || out.some((b, i) => b !== cw[i])) throw new Error(`failed at e=${e} f=${f}`);
+    tally.fixed++;
+
+    // Over capacity: must never return a payload that passes CRC-32 but differs from the original
+    const payload = data.slice(0, 44);
+    const c = GF256.crc32(payload);
+    const good = [...payload, c >>> 24, (c >>> 16) & 0xFF, (c >>> 8) & 0xFF, c & 0xFF];
+    const gcw = [...good, ...GF256.rsEncode(good, 32)];
+    const bad = [...gcw]; corrupt(bad, pick(17 + rnd(20)));
+    const dec = chronoEngine.decodePolar(bad, "");
+    if (dec.ok && GF256.rsDecode(bad, 32).some((b, i) => b !== gcw[i])) throw new Error("wrong payload passed CRC");
+    if (!dec.ok) tally.rejected++;
+  }
+
+  // Payload v6 round trip: time exact, GPS within one quantization step, serial exact (packed and UTF-8)
+  const gpsCases = [{ lat: 90, lon: -180 }, { lat: -90, lon: 180 }, { lat: 0, lon: 0 }, null];
+  for (let t = 0; t < trials; t++) {
+    const gps = t < gpsCases.length ? gpsCases[t] : (t % 5 ? { lat: Math.random() * 180 - 90, lon: Math.random() * 360 - 180 } : null);
+    const metaStr = [
+      "AMB-2026-PUN-BATCH09-SN" + rnd(1e6),     // packed (6-bit)
+      "Lot 9 · Pune " + rnd(1000),              // UTF-8 fallback
+      "A".repeat(32),                            // packed maximum
+      ""
+    ][t % 4];
+    const urlStr = "https://qx.example/id/" + t;
+    const unixSec = QXChronoRegister.QX_EPOCH_UNIX_SEC + rnd(2 ** 31);
+    const p = QXPayloadV6.parse(QXPayloadV6.build({ unixSec, gps, urlStr, metaStr }), urlStr);
+    const gpsOk = gps ? !!p.gps && Math.abs(p.gps.lat - gps.lat) <= QXPayloadV6.GPS_STEP_LAT &&
+                         Math.abs(p.gps.lon - gps.lon) <= QXPayloadV6.GPS_STEP_LON
+                      : p.gps === null;
+    if (p.layout !== 6 || p.unixSec !== unixSec || p.meta !== metaStr || !p.urlMatch || !gpsOk) {
+      throw new Error(`payload round trip failed at t=${t}`);
+    }
+    tally.payloadRoundTrips = (tally.payloadRoundTrips || 0) + 1;
+  }
+  return tally;
+}
+
+// URL tracking-strip self-check. Run `runUrlSelfTest()` in the console; it throws on any failure.
+function runUrlSelfTest() {
+  const cases = [
+    // [input, expected output]
+    ["https://www.canva.com/design/DAG1/Tok/view?utm_content=DAG1&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h1",
+     "https://www.canva.com/design/DAG1/Tok/view"],
+    ["https://example.com/p?id=7&utm_source=x&fbclid=abc#top", "https://example.com/p?id=7#top"],
+    ["https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4",
+     "https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4"],
+    ["HTTPS://Example.com/Keep?Case=1", "HTTPS://Example.com/Keep?Case=1"],   // nothing removed: untouched
+    ["not a url", "not a url"]
+  ];
+  for (const [input, want] of cases) {
+    const got = stripTracking(input).url;
+    if (got !== want) throw new Error(`stripTracking(${input}) = ${got}, want ${want}`);
+  }
+  return { passed: cases.length };
+}
+
+// Signature self-check. Run `await runSignatureSelfTest()` in the console; it throws on any failure.
+async function runSignatureSelfTest(trials = 100) {
+  // RFC 4231 test case 2: HMAC-SHA256("Jefe", "what do ya want for nothing?") starts 5bdcc146bf60754e
+  const rfc = await QXPayloadV6.hmacTag(new TextEncoder().encode("Jefe"), new TextEncoder().encode("what do ya want for nothing?"));
+  if (rfc.map(b => b.toString(16).padStart(2, "0")).join("") !== "5bdcc146bf60754e") throw new Error("HMAC vector mismatch");
+
+  const rnd = n => Math.floor(Math.random() * n);
+  const tally = { verified: 0, tamperRejected: 0 };
+  for (let t = 0; t < trials; t++) {
+    const key = crypto.getRandomValues(new Uint8Array(32));
+    const urlStr = "https://qx.example/id/" + t;
+    const fields = {
+      unixSec: QXChronoRegister.QX_EPOCH_UNIX_SEC + rnd(2 ** 31),
+      gps: t % 2 ? { lat: 18.52043, lon: 73.856743 } : null,
+      urlStr,
+      metaStr: "AMB-2026-PUN-BATCH09-SN" + rnd(1e6)
+    };
+    const p = await QXPayloadV6.buildSigned(fields, key);
+    if (!(await QXPayloadV6.verify(p, urlStr, key))) throw new Error(`valid signature rejected at t=${t}`);
+    tally.verified++;
+
+    // Each tamper must fail: flags, time, GPS, tag, serial bytes; swapped URL; wrong key
+    const otherKey = crypto.getRandomValues(new Uint8Array(32));
+    const cases = [0, 1 + rnd(4), 5 + rnd(6), 11 + rnd(8), 19 + rnd(25)].map(i => { const q = [...p]; q[i] ^= 1 + rnd(255); return [q, urlStr, key]; });
+    cases.push([p, urlStr + "x", key], [p, urlStr, otherKey]);
+    for (const [q, u, k] of cases) {
+      if (await QXPayloadV6.verify(q, u, k)) throw new Error(`tampered payload verified at t=${t}`);
+      tally.tamperRejected++;
+    }
+  }
+  return tally;
+}
+
+renderApp();
+
+// Landing hero: a static sample symbol (violet time marks), separate from the studio's inputs
+(function drawHeroSymbol() {
+  const el = document.getElementById("hero-symbol");
+  if (!el) return;
+  try {
+    const demoUrl = "https://qx.tapinhere.com/v/demo";
+    const iso = new Date().toISOString().slice(0, 19) + "Z";
+    const unixSec = QXChronoRegister.parseStrict(iso).unixSec;
+    const payload48 = QXPayloadV6.build({ unixSec, gps: null, urlStr: demoUrl, metaStr: "DEMO-0001" });
+    const { svgGroup } = chronoEngine.renderChronoMandala(demoUrl, "DEMO-0001", iso, {
+      dotScale: 0.37, colorChrono: true, showEmblem: true, showGuides: false, forExport: false, payload48
+    });
+    // Drop the studio's click-to-scratch hooks; the hero is not interactive
+    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15.2 -15.2 30.4 30.4" aria-hidden="true" focusable="false">${svgGroup.replace(/ data-cluster="\d+"/g, "")}</svg>`;
+  } catch (err) {
+    el.hidden = true;  // the landing text stands on its own if drawing fails
+  }
+})();
+</script>
+</body>
+</html>
