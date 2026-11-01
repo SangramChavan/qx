@@ -1,0 +1,11 @@
+{
+  "name": "qx",
+  "private": true,
+  "type": "module",
+  "description": "QX: open-source round QR code with signed, scratch-tolerant data, and scan-to-context pages.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/qx.test.mjs"
+  }
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found · QX</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/tap-in-here.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/qx.css">
+<script>
+// Printed codes are uppercase, but people retype them: send e/abcd2345 to e/ABCD2345 (Crockford: I, L -> 1, O -> 0).
+(function () {
+  var m = location.pathname.match(/^\/e\/([0-9a-z]{8})\/?$/i);
+  if (!m) return;
+  var fixed = "/e/" + m[1].toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0") + "/";
+  if (fixed !== location.pathname) location.replace(fixed + location.search);
+})();
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><a class="brand" href="https://tapinhere.com"><img src="/assets/tap-in-here.svg" alt="" width="28" height="28"><span>Tap In Here</span></a></header>
+  <main id="main" class="hero">
+    <h1>We can't find that QX</h1>
+    <p class="summary">The code may have been mistyped, or this QX no longer exists. If you scanned it from a label, try scanning again or contact whoever gave it to you.</p>
+    <div class="actions"><a class="btn primary" href="/">About QX</a></div>
+  </main>
+</div>
+</body>
+</html>

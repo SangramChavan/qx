@@ -1,0 +1,153 @@
+{
+  "id": "XKBA6CCG",
+  "type": "machine",
+  "title": "FX-200 Laser Cutter",
+  "subtitle": "Model FX-200 · Serial FX200-0042 · Workshop 2 (demo machine)",
+  "summary": "A CO2 laser cutter used for cutting and engraving sheet material. This is a fictional demonstration page showing how a QX opens a machine.",
+  "brand": "Examplaser",
+  "model": "FX-200",
+  "facts": [
+    {
+      "label": "Model",
+      "value": "FX-200"
+    },
+    {
+      "label": "Serial number",
+      "value": "FX200-0042"
+    },
+    {
+      "label": "Laser",
+      "value": "CO2, 60 W"
+    },
+    {
+      "label": "Work area",
+      "value": "600 × 400 mm"
+    },
+    {
+      "label": "Power supply",
+      "value": "230 V, 16 A"
+    },
+    {
+      "label": "Location",
+      "value": "Workshop 2"
+    },
+    {
+      "label": "Installed",
+      "value": "2025-03-14"
+    }
+  ],
+  "sections": [
+    {
+      "title": "Safety",
+      "role": "safety",
+      "kind": "callout",
+      "items": [
+        "Never open the lid while a job is running.",
+        "Wear laser safety glasses when servicing with the lid open.",
+        "Keep a fire extinguisher within reach of the machine.",
+        "Do not cut PVC or vinyl: it releases toxic gas."
+      ]
+    },
+    {
+      "title": "Daily checks",
+      "kind": "list",
+      "items": [
+        "Switch on the exhaust fan before cutting.",
+        "Check that the air-assist pump is running.",
+        "Wipe the lens and mirrors with lens tissue only."
+      ]
+    },
+    {
+      "title": "Maintenance schedule",
+      "kind": "table",
+      "columns": [
+        "Task",
+        "Every",
+        "Notes"
+      ],
+      "rows": [
+        [
+          "Clean the lens",
+          "Daily",
+          "Use lens tissue and the approved cleaner"
+        ],
+        [
+          "Clean the exhaust duct",
+          "Week",
+          "Switch off and unplug first"
+        ],
+        [
+          "Check the coolant level",
+          "Week",
+          "Use distilled water only"
+        ],
+        [
+          "Replace the coolant",
+          "6 months",
+          "Drain fully before refilling"
+        ],
+        [
+          "Check the belts",
+          "3 months",
+          "Look for fraying"
+        ]
+      ]
+    },
+    {
+      "title": "Troubleshooting",
+      "kind": "table",
+      "columns": [
+        "Symptom",
+        "Likely cause",
+        "What to do"
+      ],
+      "rows": [
+        [
+          "Cuts do not go all the way through",
+          "Dirty lens or wrong focus",
+          "Clean the lens and refocus"
+        ],
+        [
+          "Machine will not start",
+          "Emergency stop is pressed",
+          "Twist the red button to release it"
+        ],
+        [
+          "Burn marks on cut edges",
+          "Air assist is too low",
+          "Increase the air-assist setting"
+        ],
+        [
+          "Error E12 on the display",
+          "Low coolant flow",
+          "Check the coolant level and pump, then restart"
+        ]
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "title": "Operating guide",
+      "text": "Switch on the exhaust fan first, then the machine. Wait for the display to show Ready before loading a job.\n\nPlace the material flat on the bed and set the focus using the gauge. Close the lid before starting.\n\nAt the end of the day, switch off the machine first and the exhaust fan last, and remove all offcuts from the bed."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Who can operate this machine?",
+      "a": "Only people who have completed the workshop induction. Ask the workshop supervisor if you are unsure."
+    }
+  ],
+  "actions": [
+    {
+      "kind": "email",
+      "label": "Report a fault",
+      "href": "mailto:maintenance@example.com?subject=Fault%20report%3A%20FX200-0042"
+    },
+    {
+      "kind": "call",
+      "label": "Call maintenance",
+      "href": "tel:+15550100400"
+    }
+  ],
+  "updated": "2026-11-01"
+}

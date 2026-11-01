@@ -1,0 +1,33 @@
+{
+  "id": "K56XNYRW",
+  "type": "person",
+  "title": "Asha Rao",
+  "subtitle": "Product designer · Pune, India (fictional demo person)",
+  "summary": "A fictional demonstration profile showing how a QX can open a person's public card, with a one-tap Save contact.",
+  "facts": [
+    { "label": "Role", "value": "Product designer" },
+    { "label": "Based in", "value": "Pune, India" },
+    { "label": "Languages", "value": "English, Hindi, Marathi" },
+    { "label": "Email", "value": "asha@example.com" }
+  ],
+  "sections": [
+    { "title": "About", "kind": "text", "items": [
+      "Asha designs mobile apps and design systems, and runs short user research workshops for small teams."
+    ] },
+    { "title": "Work", "kind": "list", "items": [
+      "Mobile app design",
+      "Design systems",
+      "User research workshops"
+    ] }
+  ],
+  "faqs": [
+    { "q": "Are you available for freelance work?", "a": "Yes, for projects starting after January. Email to discuss the scope." }
+  ],
+  "actions": [
+    { "kind": "vcard", "label": "Save contact" },
+    { "kind": "email", "label": "Email", "href": "mailto:asha@example.com" },
+    { "kind": "call", "label": "Call", "href": "tel:+15550100300" },
+    { "kind": "link", "label": "Portfolio", "href": "https://example.com/asha" }
+  ],
+  "updated": "2026-11-01"
+}

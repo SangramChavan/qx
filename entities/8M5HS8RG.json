@@ -1,0 +1,36 @@
+{
+  "id": "8M5HS8RG",
+  "type": "business",
+  "title": "Brew Lane Café",
+  "subtitle": "Coffee, pastries and a quiet corner (demo business)",
+  "summary": "A neighbourhood café serving fresh coffee and daily-baked pastries. This is a fictional demonstration page showing how a QX opens a business.",
+  "badges": ["Open daily", "Free Wi-Fi"],
+  "facts": [
+    { "label": "Opening hours", "value": "Mon–Sat 8:00–20:00, Sun 9:00–18:00" },
+    { "label": "Address", "value": "12 Example Street, Pune 411001 (demo address)" },
+    { "label": "Phone", "value": "+1 555 010 0200" },
+    { "label": "Payment", "value": "Cards and UPI accepted" }
+  ],
+  "sections": [
+    { "title": "Services", "kind": "list", "items": [
+      "Coffee and tea, made to order",
+      "Fresh pastries baked every morning",
+      "Free Wi-Fi for customers",
+      "Table bookings for groups of 6 or more"
+    ] },
+    { "title": "About us", "kind": "text", "items": [
+      "Brew Lane is a small independent café. We roast our beans weekly and bake on site every morning."
+    ] }
+  ],
+  "faqs": [
+    { "q": "Do you take bookings?", "a": "Yes, for groups of 6 or more. Call or message us at least a day ahead." },
+    { "q": "Is there parking?", "a": "Street parking is available nearby. We have no private car park." }
+  ],
+  "actions": [
+    { "kind": "call", "label": "Call us", "href": "tel:+15550100200" },
+    { "kind": "whatsapp", "label": "WhatsApp", "href": "https://wa.me/15550100200?text=Hello%20Brew%20Lane" },
+    { "kind": "directions", "label": "Directions", "href": "https://www.openstreetmap.org/search?query=12%20Example%20Street%20Pune" },
+    { "kind": "email", "label": "Email us", "href": "mailto:hello@example.com" }
+  ],
+  "updated": "2026-11-01"
+}

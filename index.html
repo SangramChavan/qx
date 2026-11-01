@@ -4,18 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QX: Open-Source Round QR Code with Signed Data</title>
-  <meta name="description" content="QX is an open-source round QR code. Any phone camera scans the QR core; the rings add signed time, GPS and serial data that survive scratches." />
+  <meta name="description" content="QX is an open-source round QR code. Scan it with any phone camera to see what it is and ask questions about it, no app needed." />
   <meta name="theme-color" content="#070a12" />
   <link rel="canonical" href="https://qx.tapinhere.com/" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23070a12' stroke='%2338bdf8' stroke-width='2'/%3E%3Crect x='11' y='11' width='10' height='10' fill='%23f8fafc'/%3E%3C/svg%3E" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="QX" />
   <meta property="og:title" content="QX: Open-Source Round QR Code with Signed Data" />
-  <meta property="og:description" content="A standard QR core any phone camera can scan, wrapped in rings that carry signed time, GPS and serial data and survive scratches." />
+  <meta property="og:description" content="Scan a QX with any phone camera to see what it is and ask questions about it. Open source, no app needed." />
   <meta property="og:url" content="https://qx.tapinhere.com/" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="QX: Open-Source Round QR Code with Signed Data" />
-  <meta name="twitter:description" content="A standard QR core any phone camera can scan, wrapped in rings that carry signed time, GPS and serial data and survive scratches." />
+  <meta name="twitter:description" content="Scan a QX with any phone camera to see what it is and ask questions about it. Open source, no app needed." />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -301,6 +301,14 @@
     .landing a.inline { color: var(--accent); }
     .brand h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
     .studio-head { border-top: 1px solid var(--panel-border); padding-top: 24px; scroll-margin-top: 12px; }
+    .landing ol { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+    .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-top: 14px; }
+    .demo { display: flex; flex-direction: column; gap: 4px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px; text-decoration: none; color: var(--text); min-height: 44px; }
+    .demo:hover { border-color: var(--accent); }
+    .demo-symbol { width: 100%; max-width: 190px; aspect-ratio: 1; margin: 0 auto 6px; }
+    .demo-symbol svg { width: 100%; height: 100%; border-radius: 50%; background: #fff; }
+    .demo strong { font-size: 14px; }
+    .demo span { color: var(--muted); font-size: 13px; }
     footer.site-foot { color: var(--muted); font-size: 12px; line-height: 1.6; border-top: 1px solid var(--panel-border); padding-top: 14px; }
     footer.site-foot a { color: var(--accent); }
     @media (max-width: 860px) {
@@ -315,6 +323,7 @@
     <nav aria-label="Main">
       <span class="badge">QX</span>
       <div class="links">
+        <a href="#demos">Demos</a>
         <a href="#how">How it works</a>
         <a href="#limits">Limits</a>
         <a href="#studio">Studio</a>
@@ -325,14 +334,38 @@
     <div class="hero">
       <div>
         <span class="badge badge-chrono">OPEN SOURCE &middot; MIT &middot; DRAFT SPEC v2.5</span>
-        <h1 style="margin-top:12px;">A round QR code that carries signed, scratch-tolerant data</h1>
-        <p class="lede">QX puts a standard QR code at the centre of a 30&nbsp;mm disc and wraps it in rings that hold the time to the second, an optional GPS position, a serial number and an optional signature. Any phone camera opens the link; the rings add proof and survive damage.</p>
+        <h1 style="margin-top:12px;">Scan it. See what it is. Ask about it.</h1>
+        <p class="lede">QX is a round QR code. Any phone camera opens its page in the browser, which shows what it is attached to (a product, business, person, machine or asset) with the right information and buttons, and lets you ask questions answered from that item&rsquo;s own information. No app, no sign-up. Behind it, rings carry the time, an optional GPS position and a serial number that survive scratches.</p>
         <div class="cta-row">
-          <a class="cta primary" href="#studio">Open the studio</a>
+          <a class="cta primary" href="#demos">Scan a demo</a>
+          <a class="cta" href="#studio">Open the studio</a>
           <a class="cta" href="https://github.com/SangramChavan/qx" rel="noopener">View source on GitHub</a>
         </div>
       </div>
       <div class="hero-symbol" id="hero-symbol" role="img" aria-label="Sample QX symbol: a round code with a QR square in the centre and data rings around it"></div>
+    </div>
+
+    <div id="scan">
+      <h2>What happens when you scan</h2>
+      <p class="section-lede">No app, no sign-up, no setup. Scan it like any QR code.</p>
+      <ol>
+        <li>Your ordinary phone camera reads the code and opens the QX in the browser.</li>
+        <li>The page shows what the code belongs to, with the information and buttons that fit it: call, directions, support, save contact, report a fault.</li>
+        <li>Type a question if you need to. The answer is quoted from that item&rsquo;s own information, and it tells you when the answer isn&rsquo;t there.</li>
+        <li>That&rsquo;s it. The web address printed in the code never changes, even when the information behind it does.</li>
+      </ol>
+    </div>
+
+    <div id="demos">
+      <h2>Scan one now</h2>
+      <p class="section-lede">Point your phone camera at a symbol on this screen, or tap it. Each opens a different kind of page. These are fictional demos.</p>
+      <div class="demo-grid">
+        <a class="demo" href="/e/GD9GGWXP/"><div class="demo-symbol" data-demo="GD9GGWXP" role="img" aria-label="QX symbol that opens the product demo"></div><strong>Product</strong><span>Volt 20W USB-C Charger</span></a>
+        <a class="demo" href="/e/8M5HS8RG/"><div class="demo-symbol" data-demo="8M5HS8RG" role="img" aria-label="QX symbol that opens the business demo"></div><strong>Business</strong><span>Brew Lane Caf&eacute;</span></a>
+        <a class="demo" href="/e/K56XNYRW/"><div class="demo-symbol" data-demo="K56XNYRW" role="img" aria-label="QX symbol that opens the person demo"></div><strong>Person</strong><span>Asha Rao</span></a>
+        <a class="demo" href="/e/XKBA6CCG/"><div class="demo-symbol" data-demo="XKBA6CCG" role="img" aria-label="QX symbol that opens the machine demo"></div><strong>Machine</strong><span>FX-200 Laser Cutter</span></a>
+        <a class="demo" href="/e/3560RN6Q/"><div class="demo-symbol" data-demo="3560RN6Q" role="img" aria-label="QX symbol that opens the asset demo"></div><strong>Asset</strong><span>Laptop LT-0142</span></a>
+      </div>
     </div>
 
     <div id="how">
@@ -364,9 +397,16 @@
       </ul>
     </div>
 
+    <div id="make">
+      <h2>Make your own</h2>
+      <p class="section-lede">Each QX page is one small JSON file in the <a class="inline" href="https://github.com/SangramChavan/qx" rel="noopener">open-source repo</a>: a type, a title, facts, steps, FAQs and buttons. Add a file, run the build, and the page is live at a fixed address. Print that address as a QX from the studio below. Editing the file later changes the page, not the code on the label.</p>
+    </div>
+
     <div id="limits">
       <h2>What QX does not do yet</h2>
       <ul>
+        <li>Every QX page is public and static: no private information, no owner sign-in, and no scan analytics yet. Anything added to the repo is published, and stays in its history.</li>
+        <li>The ask box finds and quotes passages from the page&rsquo;s own information. It does not write new answers or reason, so it can miss a question phrased very differently, and it says so instead of guessing.</li>
         <li>Phone cameras read only the QR core. Reading the rings needs a QX reader, which is still in development, so signed verification today runs through the link in the QR code.</li>
         <li>Tested with software decoders, not yet scanned from printed labels. Plan for at least 300&nbsp;DPI printing: the smallest QR squares are 0.23&ndash;0.34&nbsp;mm.</li>
         <li>A signature shows who issued a code, not that a label is the original. A photocopy of a valid code still verifies, so copy detection needs server-side scan checks or a chip.</li>
@@ -399,7 +439,7 @@
 
       <div class="control-group">
         <label for="qr-url">Full Resolver URL / URI (Mixed-Case UTF-8 Byte Mode)</label>
-        <textarea id="qr-url">https://qx.ambiverttech.com/id/A1B2/0192f8a4-7c9e</textarea>
+        <textarea id="qr-url">https://qx.tapinhere.com/e/GD9GGWXP/</textarea>
         <button id="btn-strip-tracking">Strip Tracking Params</button>
         <div class="subtitle" id="url-note"></div>
       </div>
@@ -2087,24 +2127,24 @@ async function runSignatureSelfTest(trials = 100) {
 
 renderApp();
 
-// Landing hero: a static sample symbol (violet time marks), separate from the studio's inputs
-(function drawHeroSymbol() {
-  const el = document.getElementById("hero-symbol");
-  if (!el) return;
+// Landing: static sample symbols (violet time marks), separate from the studio's inputs
+function drawSample(el, url, meta) {
   try {
-    const demoUrl = "https://qx.tapinhere.com/v/demo";
     const iso = new Date().toISOString().slice(0, 19) + "Z";
     const unixSec = QXChronoRegister.parseStrict(iso).unixSec;
-    const payload48 = QXPayloadV6.build({ unixSec, gps: null, urlStr: demoUrl, metaStr: "DEMO-0001" });
-    const { svgGroup } = chronoEngine.renderChronoMandala(demoUrl, "DEMO-0001", iso, {
+    const payload48 = QXPayloadV6.build({ unixSec, gps: null, urlStr: url, metaStr: meta });
+    const { svgGroup } = chronoEngine.renderChronoMandala(url, meta, iso, {
       dotScale: 0.37, colorChrono: true, showEmblem: true, showGuides: false, forExport: false, payload48
     });
-    // Drop the studio's click-to-scratch hooks; the hero is not interactive
+    // Drop the studio's click-to-scratch hooks; these symbols are not interactive
     el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15.2 -15.2 30.4 30.4" aria-hidden="true" focusable="false">${svgGroup.replace(/ data-cluster="\d+"/g, "")}</svg>`;
   } catch (err) {
-    el.hidden = true;  // the landing text stands on its own if drawing fails
+    el.hidden = true;  // the links and text stand on their own if drawing fails
   }
-})();
+}
+const heroEl = document.getElementById("hero-symbol");
+if (heroEl) drawSample(heroEl, "https://qx.tapinhere.com/e/GD9GGWXP/", "GD9GGWXP");
+document.querySelectorAll("[data-demo]").forEach(el => drawSample(el, `https://qx.tapinhere.com/e/${el.dataset.demo}/`, el.dataset.demo));
 </script>
 </body>
 </html>

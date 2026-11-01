@@ -1,0 +1,42 @@
+{
+  "id": "GD9GGWXP",
+  "type": "product",
+  "title": "Volt 20W USB-C Charger",
+  "subtitle": "Voltaic · Model VC-20 (demo product)",
+  "summary": "A compact 20 W USB-C wall charger for phones and tablets. This is a demonstration page showing how a QX opens a product.",
+  "badges": ["12-month warranty", "USB-C PD 20 W"],
+  "brand": "Voltaic",
+  "model": "VC-20",
+  "facts": [
+    { "label": "Output", "value": "20 W USB-C Power Delivery (5 V 3 A, 9 V 2.22 A)" },
+    { "label": "Input", "value": "100–240 V AC, 50/60 Hz" },
+    { "label": "Size", "value": "45 × 45 × 28 mm" },
+    { "label": "Weight", "value": "52 g" },
+    { "label": "Warranty", "value": "12 months from the date of purchase" }
+  ],
+  "sections": [
+    { "title": "Getting started", "kind": "steps", "items": [
+      "Plug the charger into a wall socket.",
+      "Connect a USB-C cable to the charger and to your device.",
+      "Charging starts automatically. Unplug the charger when the device is full."
+    ] },
+    { "title": "Safety", "role": "safety", "kind": "callout", "items": [
+      "Use indoors only and keep it dry.",
+      "Stop using it and contact support if it becomes hot, damaged or smells of burning.",
+      "Do not use it to charge a laptop that needs more than 20 W."
+    ] }
+  ],
+  "documents": [
+    { "title": "User guide", "text": "The VC-20 charger negotiates the best charging speed with your device automatically.\n\nIf charging seems slow, try a different cable. Cables that carry only data cannot charge at full speed.\n\nClean the charger with a dry cloth only." }
+  ],
+  "faqs": [
+    { "q": "Can it charge a laptop?", "a": "Only laptops that charge at 20 W or less. Most laptops need 45 W to 65 W, which this charger cannot provide." },
+    { "q": "How do I claim the warranty?", "a": "Keep your purchase receipt and contact support with the model number VC-20. The warranty lasts 12 months from purchase." }
+  ],
+  "actions": [
+    { "kind": "email", "label": "Email support", "href": "mailto:support@example.com?subject=VC-20%20support" },
+    { "kind": "call", "label": "Call support", "href": "tel:+15550100100" },
+    { "kind": "link", "label": "Warranty page", "href": "https://example.com/warranty" }
+  ],
+  "updated": "2026-11-01"
+}

@@ -1,0 +1,9 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Asha Rao
+N:Rao;Asha;;;
+TITLE:Product designer
+TEL;TYPE=CELL:+15550100300
+EMAIL:asha@example.com
+URL:https://example.com/asha
+END:VCARD

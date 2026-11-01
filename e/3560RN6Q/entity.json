@@ -1,0 +1,83 @@
+{
+  "id": "3560RN6Q",
+  "type": "asset",
+  "title": "Laptop LT-0142",
+  "subtitle": "Asset tag LT-0142 · IT equipment (demo asset)",
+  "summary": "A company laptop tracked in the asset register. This is a fictional demonstration page showing how a QX opens a physical asset.",
+  "facts": [
+    {
+      "label": "Asset tag",
+      "value": "LT-0142"
+    },
+    {
+      "label": "Category",
+      "value": "Laptop"
+    },
+    {
+      "label": "Model",
+      "value": "Example Book 14"
+    },
+    {
+      "label": "Assigned to",
+      "value": "Design team (shared)"
+    },
+    {
+      "label": "Location",
+      "value": "Pune office, floor 2"
+    },
+    {
+      "label": "Status",
+      "value": "In use"
+    },
+    {
+      "label": "Purchased",
+      "value": "2025-06-10"
+    },
+    {
+      "label": "Warranty until",
+      "value": "2028-06-09"
+    }
+  ],
+  "records": [
+    {
+      "date": "2026-09-02",
+      "text": "Serviced by IT: battery replaced."
+    },
+    {
+      "date": "2026-03-18",
+      "text": "Serviced by IT: operating system upgraded and disk cleaned."
+    },
+    {
+      "date": "2025-06-12",
+      "text": "Added to the register and assigned to the Design team."
+    }
+  ],
+  "sections": [
+    {
+      "title": "If you find this laptop",
+      "kind": "text",
+      "items": [
+        "Please return it to the IT desk on floor 2, or report it with the button below."
+      ]
+    }
+  ],
+  "faqs": [
+    {
+      "q": "How do I report a problem with this laptop?",
+      "a": "Use the Report an issue button and include the asset tag LT-0142. The IT desk replies within one working day."
+    }
+  ],
+  "actions": [
+    {
+      "kind": "email",
+      "label": "Report an issue",
+      "href": "mailto:it@example.com?subject=Asset%20LT-0142"
+    },
+    {
+      "kind": "call",
+      "label": "Call the IT desk",
+      "href": "tel:+15550100500"
+    }
+  ],
+  "updated": "2026-11-01"
+}
