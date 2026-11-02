@@ -57,9 +57,9 @@ A 30 mm disc, from the centre out:
 |---|---|
 | QR core (ISO/IEC 18004, level M, V2-V6) | A URL of up to 106 bytes (105 with non-ASCII, which adds a UTF-8 ECI marker). Best of 8 masks by standard penalty score. 4-module quiet zone. |
 | Time marks (48) | Date and time to the second plus CRC-8, in four crescents between the core and the rings. |
-| Data rings (80 bytes) | RS(80,48): 48 payload bytes and 32 error-correction bytes. Repairs up to 16 unknown damaged bytes (up to 32 if a reader can mark which are damaged). |
+| Data rings (152 bytes) | 12 data rings plus a sync ring. RS(152,104): 104 data bytes and 48 error-correction bytes. Repairs up to 24 unknown damaged bytes (up to 48 if a reader can mark which are damaged). |
 
-Payload v6 (48 bytes): layout and flags, 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), an 8-byte tag (CRC-32 of the URL, or a truncated HMAC-SHA256 when an issuer key is used), a 25-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, else UTF-8), and a CRC-32.
+Payload v7 (104 bytes): layout and flags, 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), a 4-byte URL CRC-32 (unsigned symbols only), a 21-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, up to 27 characters, else UTF-8), a CRC-32 of those 36 bytes, and a 64-byte Ed25519 signature (zero when unsigned). The signature covers the QR URL and the 36 bytes above.
 
 Limits of the symbol itself:
 
@@ -81,7 +81,7 @@ Open http://localhost:8790. Self-checks run from the browser console and throw o
 ```js
 runPolarSelfTest(500)         // RS decoder and payload round trips
 runUrlSelfTest()              // tracking-parameter stripping
-await runSignatureSelfTest()  // HMAC vector and tamper cases
+await runSignatureSelfTest()  // RFC 8032 Ed25519 vector and tamper cases
 ```
 
 ## Privacy
