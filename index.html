@@ -22,7 +22,7 @@
     "@type": "WebApplication",
     "name": "QX Studio",
     "url": "https://qx.tapinhere.com/",
-    "description": "Open-source round QR code generator. A standard QR core readable by any phone camera, wrapped in Reed-Solomon-protected rings carrying time, optional GPS, a serial number and an optional HMAC signature.",
+    "description": "Open-source round QR code generator. A standard QR core readable by any phone camera, wrapped in Reed-Solomon-protected rings carrying time, optional GPS, a serial number and an optional Ed25519 signature.",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Any modern web browser",
     "isAccessibleForFree": true,
@@ -382,7 +382,7 @@
         </div>
         <div class="card">
           <h3>3. Data rings</h3>
-          <p>80 bytes: 48 of payload (time, optional GPS to about 1&ndash;2&nbsp;m, a serial, an optional HMAC-SHA256 tag) and 32 of Reed&ndash;Solomon error correction that repairs up to 16 damaged bytes.</p>
+          <p>152 bytes: 104 of payload (time, optional GPS to about 1&ndash;2&nbsp;m, a serial, and an optional 64-byte Ed25519 signature) and 48 of Reed&ndash;Solomon error correction that repairs up to 24 damaged bytes.</p>
         </div>
       </div>
     </div>
@@ -421,7 +421,7 @@
       <span class="badge badge-chrono">48-BIT CHRONO-SPOKES</span>
       <div>
         <h2 id="studio-title">QX Studio &mdash; build and test a symbol in your browser</h2>
-        <div class="subtitle">48-Bit Radial Crescent Timestamp (Date + Time to the Second + CRC-8) &bull; 106B URL Core &bull; 80B RS(80,48) Polar Annulus (Time + GPS + Serial)</div>
+        <div class="subtitle">48-Bit Radial Crescent Timestamp (Date + Time to the Second + CRC-8) &bull; 106B URL Core &bull; 152B RS(152,104) Polar Annulus (Time + GPS + Serial + Signature)</div>
       </div>
     </div>
     <div class="btn-row" style="width: 100%; max-width: 240px;">
@@ -449,7 +449,7 @@
           Serial / Batch (A-Z a-z 0-9 - _ packs to 32 chars, else 25 B UTF-8)
           <span class="val" id="meta-byte-counter">0 / 25 B</span>
         </label>
-        <input type="text" id="qx-meta" value="AMB-2026-PUN-BATCH09-SN8849201" maxlength="32" />
+        <input type="text" id="qx-meta" value="AMB-2026-PUN-BATCH09" maxlength="27" />
       </div>
 
       <div class="card-title" style="margin-top: 2px;">
@@ -574,7 +574,7 @@
 
       <div id="polar-status" class="status-pill status-ok">
         <span>Outer QX-HD Polar (80 Bytes)</span>
-        <span id="polar-status-text">80/80 BYTES INTACT</span>
+        <span id="polar-status-text">152/152 BYTES INTACT</span>
       </div>
 
       <div class="stat-grid">
@@ -605,7 +605,7 @@
 
       <div class="control-group">
         <label>
-          <span>80-Byte Outer Polar Codeword Map (Click sectors to scratch)</span>
+          <span>152-Byte Outer Polar Codeword Map (Click sectors to scratch)</span>
           <span class="val">48B Data + 32B RS</span>
         </label>
         <div class="hex-dump" id="codeword-dump"></div>
@@ -1147,21 +1147,24 @@ const MultiVersionMatrix = {
  * ============================================================================
  */
 /**
- * Polar Payload v6 (48 bytes, protected by RS(80,48) in the rings)
- *   [0]      0x60 | flags      (high nibble = layout 6; flags: GPS, packed serial, HMAC tag)
+ * Polar Payload v7: 104 data bytes, protected by RS(152,104) in the rings
+ *   [0]      0x70 | flags      (high nibble = layout 7; flags: GPS, packed serial, Ed25519 signed)
  *   [1..4]   unix seconds      (32-bit, duplicates the chrono-spokes)
  *   [5..10]  GPS               (24-bit lat + 24-bit lon fixed point, zero if absent)
- *   [11..18] tag               (phase 1: CRC-32 of the QR URL + 4 zero bytes; phase 3: truncated HMAC)
- *   [19..43] serial / batch    (25 B: 6-bit packed when possible, else UTF-8)
- *   [44..47] CRC-32 of [0..43]
+ *   [11..14] URL CRC-32        (unsigned only; zero when signed, the signature binds the URL)
+ *   [15..35] serial / batch    (21 B: 6-bit packed when possible, else UTF-8)
+ *   [36..39] CRC-32 of [0..35]
+ *   [40..103] Ed25519 signature over the domain tag, the URL and [0..35] (zero when unsigned)
  */
-const QXPayloadV6 = {
-  PROFILE: 0x60,
+const QXPayloadV7 = {
+  PROFILE: 0x70,
   F_GPS: 0x01,
   F_PACKED: 0x02,
-  F_HMAC: 0x04,
-  META_BYTES: 25,
-  PACKED_MAX_CHARS: 32,
+  F_SIGNED: 0x04,
+  META_BYTES: 21,
+  PACKED_MAX_CHARS: 27,
+  CORE_BYTES: 36,   // before the CRC-32
+  DATA_BYTES: 104,  // core + CRC-32 + signature
   B64: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
   GPS_STEP_LAT: 180 / 0xFFFFFF,  // ~1.2 m
   GPS_STEP_LON: 360 / 0xFFFFFF,  // ~2.4 m at the equator
@@ -1169,7 +1172,7 @@ const QXPayloadV6 = {
   utf8: s => Array.from(new TextEncoder().encode(s)),
   u32: v => [(v >>> 24) & 0xFF, (v >>> 16) & 0xFF, (v >>> 8) & 0xFF, v & 0xFF],
 
-  // Serial text: 6-bit length + 6 bits/char when every char is A-Z a-z 0-9 - _ (max 32), else raw UTF-8 (max 25 B)
+  // Serial text: 6-bit length + 6 bits/char when every char is A-Z a-z 0-9 - _ (max 27), else raw UTF-8 (max 21 B)
   encodeMeta(text) {
     const chars = [...text];
     if (chars.length <= this.PACKED_MAX_CHARS && chars.every(ch => this.B64.includes(ch))) {
@@ -1217,80 +1220,93 @@ const QXPayloadV6 = {
     };
   },
 
-  // 44-byte core. Unsigned: tag = CRC-32(url) + 4 zero bytes. Signed: tag left zero for sealSigned to fill.
+  // 36-byte core. Unsigned: URL slot = CRC-32(url). Signed: URL slot left zero, the signature binds the URL.
   buildCore({ unixSec, gps, urlStr, metaStr, signed = false }) {
     const meta = this.encodeMeta(metaStr);
-    if (!meta.ok) throw new Error("Serial exceeds 25 bytes");  // callers validate first; never truncate
-    const flags = (gps ? this.F_GPS : 0) | (meta.packed ? this.F_PACKED : 0) | (signed ? this.F_HMAC : 0);
+    if (!meta.ok) throw new Error("Serial exceeds 21 bytes");  // callers validate first; never truncate
+    const flags = (gps ? this.F_GPS : 0) | (meta.packed ? this.F_PACKED : 0) | (signed ? this.F_SIGNED : 0);
     return [
       this.PROFILE | flags,
       ...this.u32(unixSec),
       ...(gps ? this.encodeGps(gps.lat, gps.lon) : [0, 0, 0, 0, 0, 0]),
-      ...(signed ? [0, 0, 0, 0, 0, 0, 0, 0] : [...this.u32(GF256.crc32(this.utf8(urlStr))), 0, 0, 0, 0]),
+      ...(signed ? [0, 0, 0, 0] : this.u32(GF256.crc32(this.utf8(urlStr)))),
       ...meta.bytes
     ];
   },
 
-  seal(core44) {
-    return [...core44, ...this.u32(GF256.crc32(core44))];
+  // Core + CRC-32 (40 bytes)
+  seal(core36) {
+    return [...core36, ...this.u32(GF256.crc32(core36))];
   },
 
+  // Unsigned data block: the sealed core and an all-zero signature field
   build(fields) {
-    return this.seal(this.buildCore(fields));
-  },
-
-  // --- Issuer signature: 8-byte truncated HMAC-SHA256 (WebCrypto) ---
-  // Signs a domain tag, the length-prefixed QR URL and every payload byte except the tag itself,
-  // so the URL, time, GPS, serial and flags (including the signed flag) can't be altered or swapped.
-  signingInput(core44, urlStr) {
-    const url = this.utf8(urlStr);
-    return new Uint8Array([
-      ...this.utf8("QX-HD/v6"), url.length >> 8, url.length & 0xFF, ...url,
-      ...core44.slice(0, 11), ...core44.slice(19, 44)
-    ]);
+    return [...this.seal(this.buildCore(fields)), ...new Array(64).fill(0)];
   },
 
   parseKeyHex(hex) {
     const s = hex.trim();
     if (!s) return { key: null };
-    if (!/^[0-9a-fA-F]{64}$/.test(s)) return { err: "Key must be 64 hex chars (32 bytes)" };
+    if (!/^[0-9a-fA-F]{64}$/.test(s)) return { err: "Key must be 64 hex chars (32-byte Ed25519 seed)" };
     return { key: new Uint8Array(s.match(/../g).map(h => parseInt(h, 16))) };
   },
 
-  async hmacTag(keyBytes, data) {
-    const k = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    return Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", k, data))).slice(0, 8);
+  // --- Issuer signature: Ed25519 (WebCrypto). The issuer key is the 32-byte seed, wrapped as PKCS#8 ---
+  PKCS8_ED25519: [0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20],
+
+  // Signs a domain tag, the length-prefixed QR URL and the 36-byte core, so the URL, time, GPS,
+  // serial and flags (including the signed flag) can't be altered or swapped.
+  signingInput(core36, urlStr) {
+    const url = this.utf8(urlStr);
+    return new Uint8Array([...this.utf8("QX-HD/v7"), url.length >> 8, url.length & 0xFF, ...url, ...core36]);
   },
 
-  async buildSigned(fields, keyBytes) {
-    const core44 = this.buildCore({ ...fields, signed: true });
-    const tag = await this.hmacTag(keyBytes, this.signingInput(core44, fields.urlStr));
-    tag.forEach((b, i) => { core44[11 + i] = b; });
-    return this.seal(core44);
+  async keysFromSeed(seed) {
+    const sign = await crypto.subtle.importKey("pkcs8", new Uint8Array([...this.PKCS8_ED25519, ...seed]), { name: "Ed25519" }, true, ["sign"]);
+    const { x } = await crypto.subtle.exportKey("jwk", sign);  // the public half, base64url
+    const verify = await crypto.subtle.importKey("jwk", { kty: "OKP", crv: "Ed25519", x, key_ops: ["verify"], ext: true }, { name: "Ed25519" }, true, ["verify"]);
+    return { sign, verify };
   },
 
-  // Recompute the tag from a decoded payload; compare without early exit
-  async verify(payload48, urlStr, keyBytes) {
-    const expect = await this.hmacTag(keyBytes, this.signingInput(payload48.slice(0, 44), urlStr));
-    let diff = 0;
-    for (let i = 0; i < 8; i++) diff |= expect[i] ^ payload48[11 + i];
-    return diff === 0;
+  async buildSigned(fields, seed) {
+    const core36 = this.buildCore({ ...fields, signed: true });
+    const { sign } = await this.keysFromSeed(seed);
+    const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", sign, this.signingInput(core36, fields.urlStr)));
+    return [...this.seal(core36), ...sig];
+  },
+
+  // Check the signature on a decoded 104-byte data block (the CRC-32 is checked by the RS/CRC decode)
+  async verify(data104, urlStr, seed) {
+    const { verify } = await this.keysFromSeed(seed);
+    return crypto.subtle.verify("Ed25519", verify, new Uint8Array(data104.slice(40, 104)), this.signingInput(data104.slice(0, 36), urlStr));
+  },
+
+  // Reader-side trust: a signature counts only if its public key is on the reader's trust list.
+  // Returns the matching issuer's name, or null when no trusted key verifies the block.
+  async verifyTrusted(data104, urlStr, trustList) {
+    const msg = this.signingInput(data104.slice(0, 36), urlStr);
+    const sig = new Uint8Array(data104.slice(40, 104));
+    for (const issuer of trustList) {
+      const pub = await crypto.subtle.importKey("raw", new Uint8Array(issuer.publicKeyHex.match(/../g).map(h => parseInt(h, 16))), { name: "Ed25519" }, false, ["verify"]);
+      if (await crypto.subtle.verify("Ed25519", pub, sig, msg)) return issuer.name;
+    }
+    return null;
   },
 
   // Assumes the codeword already passed RS + CRC-32
   parse(cw, urlStr) {
     const u32At = i => ((cw[i] << 24) | (cw[i + 1] << 16) | (cw[i + 2] << 8) | cw[i + 3]) >>> 0;
     const flags = cw[0] & 0x0F;
-    const signed = !!(flags & this.F_HMAC);
+    const signed = !!(flags & this.F_SIGNED);
     return {
       layout: cw[0] >> 4,
       signed,
-      payload: cw.slice(0, 48),
+      data: cw.slice(0, 104),
       unixSec: u32At(1),
       gps: (flags & this.F_GPS) ? this.decodeGps(cw.slice(5, 11)) : null,
-      // Signed symbols bind the URL through the HMAC instead; check that with verify()
+      // Signed symbols bind the URL through the signature instead; check that with verify()
       urlMatch: signed ? null : u32At(11) === GF256.crc32(this.utf8(urlStr)),
-      meta: this.decodeMeta(cw.slice(19, 44), !!(flags & this.F_PACKED))
+      meta: this.decodeMeta(cw.slice(15, 36), !!(flags & this.F_PACKED))
     };
   }
 };
@@ -1303,16 +1319,24 @@ class QXChronoEngine {
       0,0,1,0,1,0,1,1, 1,0,1,1,0,0,0,0
     ];
 
-    // RS(80,48): 48 payload bytes + 32 parity bytes, corrects up to 16 unknown bad bytes
-    this.numBytes = 80;
-    this.payloadBytes = 48;
-    this.parityBytes = 32;
-    this.stride = 23;   // gcd(23, 80) = 1
+    // RS(152,104): 104 data bytes + 48 parity bytes, corrects up to 24 unknown bad bytes
+    this.numBytes = 152;
+    this.payloadBytes = 104;
+    this.parityBytes = 48;
+    this.stride = 37;   // gcd(37, 152) = 1
     this.offset = 7;
+
+    // 13 concentric rings between r = 8.35 mm and the crown at 14.20 mm: one sync ring, then 12 data rings
+    this.dataSectors = [96, 96, 104, 112, 112, 120, 128, 128, 136, 144, 144, 152];   // 1472 bits, 1216 used
+    this.ringSpecs = [{ rIn: 8.35, rOut: 8.90, sectors: 32, type: "SYNC" }];
+    this.dataSectors.forEach((sectors, i) => {
+      const rIn = 8.95 + i * 0.43;   // 0.37 mm rings, 0.06 mm gaps
+      this.ringSpecs.push({ rIn, rOut: rIn + 0.37, sectors, type: "DATA", ringIdx: i });
+    });
   }
 
-  encodePolarState(urlStr, payload48) {
-    const logical = [...payload48, ...GF256.rsEncode(payload48, this.parityBytes)];
+  encodePolarState(urlStr, payload) {
+    const logical = [...payload, ...GF256.rsEncode(payload, this.parityBytes)];
 
     // ponytail: one RS block, so this stride only scatters bytes visually; it adds no correction power.
     // Real burst protection would need several RS blocks interleaved.
@@ -1329,61 +1353,38 @@ class QXChronoEngine {
     const rxLogical = logical.map((_, i) => rxPhysical[(this.stride * i + this.offset) % this.numBytes]);
     const decode = this.decodePolar(rxLogical, urlStr);
 
-    // Rings 0-6 as before; ring 7 (outermost, 64 sectors) carries physical bytes 72-79, 8 sectors each
-    const ringSectors = [64, 64, 80, 80, 96, 96, 96, 64];
-    const dataRings = ringSectors.map(s => new Array(s).fill(0));
+    // Bits go around the rings in order, inner ring first: physical byte p fills flat bits 8p..8p+7.
+    // Sectors past the last byte stay empty (blank space in the symbol).
+    const dataRings = this.dataSectors.map(s => new Array(s).fill(0));
     const cellToCluster = {};
-
-    for (let p = 0; p < 16; p++) {
-      const bVal = physical[p];
-      const startSec = p * 4;
-      for (let k = 0; k < 4; k++) {
-        dataRings[0][startSec + k] = (bVal >> (7 - k)) & 1;
-        dataRings[1][startSec + k] = (bVal >> (3 - k)) & 1;
-        cellToCluster[`0_${startSec + k}`] = p;
-        cellToCluster[`1_${startSec + k}`] = p;
+    let flat = 0;
+    this.dataSectors.forEach((sectors, r) => {
+      for (let s = 0; s < sectors; s++, flat++) {
+        const p = flat >> 3;
+        if (p >= this.numBytes) continue;
+        dataRings[r][s] = (physical[p] >> (7 - (flat & 7))) & 1;
+        cellToCluster[`${r}_${s}`] = p;
       }
-    }
-    for (let idx = 0; idx < 20; idx++) {
-      const p = 16 + idx;
-      const bVal = physical[p];
-      const startSec = idx * 4;
-      for (let k = 0; k < 4; k++) {
-        dataRings[2][startSec + k] = (bVal >> (7 - k)) & 1;
-        dataRings[3][startSec + k] = (bVal >> (3 - k)) & 1;
-        cellToCluster[`2_${startSec + k}`] = p;
-        cellToCluster[`3_${startSec + k}`] = p;
-      }
-    }
-    for (let idx = 0; idx < 44; idx++) {
-      const p = 36 + idx;
-      const bVal = physical[p];
-      const rIdx = 4 + Math.floor(idx / 12);
-      const startSec = (idx % 12) * 8;
-      for (let b = 0; b < 8; b++) {
-        dataRings[rIdx][startSec + b] = (bVal >> (7 - b)) & 1;
-        cellToCluster[`${rIdx}_${startSec + b}`] = p;
-      }
-    }
+    });
 
     return { logical, physical, decode, dataRings, cellToCluster };
   }
 
   decodePolar(rxLogical, urlStr, erasures = []) {
     const crcOk = cw => {
-      const c = GF256.crc32(cw.slice(0, 44));
-      return cw[44] === (c >>> 24) && cw[45] === ((c >>> 16) & 0xFF) && cw[46] === ((c >>> 8) & 0xFF) && cw[47] === (c & 0xFF);
+      const c = GF256.crc32(cw.slice(0, 36));
+      return cw[36] === (c >>> 24) && cw[37] === ((c >>> 16) & 0xFF) && cw[38] === ((c >>> 8) & 0xFF) && cw[39] === (c & 0xFF);
     };
-    // Errors-only for now; a camera reader can pass low-confidence byte positions as erasures (up to 32)
+    // Errors-only for now; a camera reader can pass low-confidence byte positions as erasures (up to 48)
     let cw = GF256.rsDecode(rxLogical, this.parityBytes, erasures);
     if (cw && !crcOk(cw)) cw = null;  // beyond capacity RS can land on a wrong codeword; CRC-32 rejects it
     if (!cw) return { ok: false };
-    // A valid codeword from a different payload layout must not be read with the v6 field map
-    if ((cw[0] >> 4) !== QXPayloadV6.PROFILE >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
+    // A valid codeword from a different payload layout must not be read with the v7 field map
+    if ((cw[0] >> 4) !== QXPayloadV7.PROFILE >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
     return {
       ok: true,
       corrected: cw.filter((b, i) => b !== rxLogical[i]).length,
-      ...QXPayloadV6.parse(cw, urlStr)
+      ...QXPayloadV7.parse(cw, urlStr)
     };
   }
 
@@ -1434,12 +1435,12 @@ class QXChronoEngine {
   }
 
   renderChronoMandala(urlStr, metaStr, chronoStr, opts) {
-    const { dotScale, colorChrono, showEmblem, showGuides, forExport, logo, gps = null, payload48 } = opts;
+    const { dotScale, colorChrono, showEmblem, showGuides, forExport, logo, gps = null, payload } = opts;
     const qrInfo = MultiVersionMatrix.encodeUrlToMatrix(urlStr);
     const chronoData = QXChronoRegister.encodeTimestampTo48Bits(chronoStr);
-    // Callers pass a (possibly signed) payload; fall back to an unsigned one
+    // Callers pass a (possibly signed) 104-byte data block; fall back to an unsigned one
     const polarState = this.encodePolarState(urlStr,
-      payload48 || QXPayloadV6.build({ unixSec: chronoData.unixSec, gps, urlStr, metaStr }));
+      payload || QXPayloadV7.build({ unixSec: chronoData.unixSec, gps, urlStr, metaStr }));
     const parts = [];
 
     // 1. 30mm Circular Medallion Substrate
@@ -1545,20 +1546,8 @@ class QXChronoEngine {
       parts.push(`<circle cx="0" cy="0" r="${f(0.31)}" fill="#FFFFFF" />`);
     }
 
-    // 6. Render Outer QX-HD Harmonic Polar Rings (80-Byte RS(80,48) Codeword)
-    const ringSpecs = [
-      { rIn: 8.35,  rOut: 8.90,  sectors: 32, type: "SYNC" },
-      { rIn: 9.00,  rOut: 9.62,  sectors: 64, type: "DATA", ringIdx: 0 },
-      { rIn: 9.62,  rOut: 10.24, sectors: 64, type: "DATA", ringIdx: 1 },
-      { rIn: 10.34, rOut: 10.96, sectors: 80, type: "DATA", ringIdx: 2 },
-      { rIn: 10.96, rOut: 11.58, sectors: 80, type: "DATA", ringIdx: 3 },
-      { rIn: 11.68, rOut: 12.28, sectors: 96, type: "DATA", ringIdx: 4 },
-      { rIn: 12.28, rOut: 12.88, sectors: 96, type: "DATA", ringIdx: 5 },
-      { rIn: 12.88, rOut: 13.48, sectors: 96, type: "DATA", ringIdx: 6 },
-      { rIn: 13.56, rOut: 14.08, sectors: 64, type: "DATA", ringIdx: 7 }
-    ];
-
-    for (const ring of ringSpecs) {
+    // 6. Render Outer QX-HD Harmonic Polar Rings (152-Byte RS(152,104) Codeword, 12 data rings)
+    for (const ring of this.ringSpecs) {
       const bits = ring.type === "SYNC" ? this.SYNC_32 : polarState.dataRings[ring.ringIdx];
       const stepDeg = 360.0 / ring.sectors;
 
@@ -1581,7 +1570,7 @@ class QXChronoEngine {
 
     if (showGuides && !forExport) {
       parts.push(`<g stroke="#38bdf8" stroke-width="0.05" stroke-dasharray="0.2,0.2" pointer-events="none">`);
-      ringSpecs.forEach(r => parts.push(`<circle cx="0" cy="0" r="${r.rIn}" fill="none" />`));
+      this.ringSpecs.forEach(r => parts.push(`<circle cx="0" cy="0" r="${r.rIn}" fill="none" />`));
       for (let j = 0; j < 16; j++) {
         const a = (j * 22.5 - 90) * (Math.PI / 180);
         parts.push(`<line x1="${(8.1*Math.cos(a)).toFixed(2)}" y1="${(8.1*Math.sin(a)).toFixed(2)}" x2="${(14.1*Math.cos(a)).toFixed(2)}" y2="${(14.1*Math.sin(a)).toFixed(2)}" />`);
@@ -1689,9 +1678,9 @@ function readInputs() {
   if (!ts.ok) errors.ts = ts.err;
   const gps = parseGps(ui.gpsCoords.value);
   if (gps.err) errors.gps = gps.err;
-  const meta = QXPayloadV6.encodeMeta(metaStr);
-  if (!meta.ok) errors.meta = `Serial is ${meta.used} B (max ${QXPayloadV6.META_BYTES})`;
-  const k = QXPayloadV6.parseKeyHex(ui.issuerKey.value);
+  const meta = QXPayloadV7.encodeMeta(metaStr);
+  if (!meta.ok) errors.meta = `Serial is ${meta.used} B (max ${QXPayloadV7.META_BYTES})`;
+  const k = QXPayloadV7.parseKeyHex(ui.issuerKey.value);
   if (k.err) errors.key = k.err;
   else if (k.key && !(window.crypto && crypto.subtle)) errors.key = "Signing needs HTTPS or localhost";
 
@@ -1701,7 +1690,7 @@ function readInputs() {
 // Signed when an issuer key is present, otherwise the unsigned CRC-bound payload
 async function buildPayload(inp) {
   const fields = { unixSec: inp.unixSec, gps: inp.gps, urlStr: inp.urlStr, metaStr: inp.metaStr };
-  return inp.key ? QXPayloadV6.buildSigned(fields, inp.key) : QXPayloadV6.build(fields);
+  return inp.key ? QXPayloadV7.buildSigned(fields, inp.key) : QXPayloadV7.build(fields);
 }
 
 const setVal = (el, text, isErr) => { el.textContent = text; el.style.color = isErr ? "var(--danger)" : ""; };
@@ -1723,13 +1712,13 @@ async function renderApp() {
   ui.dotScaleVal.textContent = `${dotScale.toFixed(2)} mod`;
 
   setVal(ui.metaCounter, meta.ok
-    ? `${meta.used} / ${QXPayloadV6.META_BYTES} B${meta.packed ? " packed" : " UTF-8"}`
-    : `${meta.used} / ${QXPayloadV6.META_BYTES} B too long`, !!errors.meta);
+    ? `${meta.used} / ${QXPayloadV7.META_BYTES} B${meta.packed ? " packed" : " UTF-8"}`
+    : `${meta.used} / ${QXPayloadV7.META_BYTES} B too long`, !!errors.meta);
   setVal(ui.gpsVal, errors.gps || (gps ? "Included (~1-2 m)" : "Not included"), !!errors.gps);
   if (errors.url) setVal(ui.urlCounter, errors.url, true);
   setVal(ui.urlNote, inp.urlWarn || (stripNote && stripNote.url === ui.qrUrl.value ? stripNote.text : ""), !!inp.urlWarn);
   if (errors.ts) setVal(ui.chronoEpochVal, errors.ts, true);
-  setVal(ui.keyStatus, errors.key || (key ? "Signing (HMAC-SHA256, 64-bit)" : "Unsigned"), !!errors.key);
+  setVal(ui.keyStatus, errors.key || (key ? "Signing (Ed25519)" : "Unsigned"), !!errors.key);
 
   // Invalid input: say so and keep the last valid drawing; never encode a guessed or truncated value
   const errList = Object.values(errors);
@@ -1743,7 +1732,7 @@ async function renderApp() {
     return;
   }
 
-  const payload48 = await buildPayload(inp);
+  const payload = await buildPayload(inp);
   if (seq !== renderSeq) return;  // a newer render started while signing
 
   const { svgGroup, qrInfo, chronoData, polarState, holeMm } = chronoEngine.renderChronoMandala(
@@ -1754,7 +1743,7 @@ async function renderApp() {
       showGuides: ui.chkGuides.checked,
       forExport: false,
       logo: logoDataUrl,
-      payload48
+      payload
     }
   );
 
@@ -1801,12 +1790,12 @@ async function renderApp() {
 
   // Polar status comes from actually decoding the (possibly scratched) bytes, not from the encoder's state
   const dec = polarState.decode;
-  ui.statBudget.textContent = dec.ok ? `${dec.corrected} / 16` : "FAILED";
+  ui.statBudget.textContent = dec.ok ? `${dec.corrected} / 24` : "FAILED";
 
   // GPS round-trips within one quantization step
   const gpsMatch = dec.ok && (gps
-    ? !!dec.gps && Math.abs(dec.gps.lat - gps.lat) <= QXPayloadV6.GPS_STEP_LAT &&
-      Math.abs(dec.gps.lon - gps.lon) <= QXPayloadV6.GPS_STEP_LON
+    ? !!dec.gps && Math.abs(dec.gps.lat - gps.lat) <= QXPayloadV7.GPS_STEP_LAT &&
+      Math.abs(dec.gps.lon - gps.lon) <= QXPayloadV7.GPS_STEP_LON
     : !dec.gps);
   if (dec.ok && dec.gps) {
     ui.gpsStatus.className = `status-pill ${gpsMatch ? "status-ok" : "status-fail"}`;
@@ -1819,7 +1808,7 @@ async function renderApp() {
   // Signature check on the decoded bytes (needs the issuer key); unsigned symbols fall back to the URL CRC
   let sigOk = null;
   if (dec.ok && dec.signed && key) {
-    sigOk = await QXPayloadV6.verify(dec.payload, urlStr, key);
+    sigOk = await QXPayloadV7.verify(dec.data, urlStr, key);
     if (seq !== renderSeq) return;
   }
   if (!dec.ok) {
@@ -1830,21 +1819,21 @@ async function renderApp() {
     ui.sigStatusText.textContent = "UNSIGNED (CRC BINDING ONLY)";
   } else {
     ui.sigStatus.className = `status-pill ${sigOk ? "status-ok" : "status-fail"}`;
-    ui.sigStatusText.textContent = sigOk ? "HMAC VERIFIED" : (key ? "SIGNATURE INVALID" : "SIGNED (NO KEY TO VERIFY)");
+    ui.sigStatusText.textContent = sigOk ? "ED25519 VERIFIED" : (key ? "SIGNATURE INVALID" : "SIGNED (NO KEY TO VERIFY)");
   }
   const bound = dec.signed ? sigOk === true : dec.urlMatch;
 
   if (dec.ok && dec.meta === metaStr && bound && gpsMatch) {
     ui.polarStatus.className = "status-pill status-ok";
     ui.polarStatusText.textContent = dec.corrected === 0
-      ? "80/80 BYTES INTACT"
+      ? "152/152 BYTES INTACT"
       : `RECOVERED (${dec.corrected}B CORRECTED)`;
-    ui.crcBadge.textContent = dec.signed ? "HMAC + CRC VALID" : "CRC-32 + CRC-8 VALID";
+    ui.crcBadge.textContent = dec.signed ? "ED25519 + CRC VALID" : "CRC-32 + CRC-8 VALID";
   } else {
     ui.polarStatus.className = "status-pill status-fail";
     ui.polarStatusText.textContent = dec.ok ? "DECODED BUT MISMATCH"
       : dec.unknownLayout !== undefined ? `UNKNOWN PAYLOAD LAYOUT v${dec.unknownLayout}`
-      : "DECODE FAILED (>16 BAD BYTES)";
+      : "DECODE FAILED (>24 BAD BYTES)";
     ui.crcBadge.textContent = "DECODE HALTED";
   }
 
@@ -1988,7 +1977,7 @@ document.getElementById("btn-download-svg").addEventListener("click", async () =
     return;
   }
   // The key is used only to compute the tag; the SVG carries the tag, never the key
-  const payload48 = await buildPayload(inp);
+  const payload = await buildPayload(inp);
   const { svgGroup } = chronoEngine.renderChronoMandala(urlStr, metaStr, chronoStr, {
     dotScale: parseFloat(ui.dotScale.value),
     colorChrono: false, // Export pure monochrome #000000 for UV/Thermal/Laser printing
@@ -1996,7 +1985,7 @@ document.getElementById("btn-download-svg").addEventListener("click", async () =
     showGuides: false,
     forExport: true,
     logo: logoDataUrl,
-    payload48
+    payload
   });
 
   const xmlEsc = s => s.replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]));
@@ -2020,52 +2009,53 @@ function runPolarSelfTest(trials = 300) {
   const rnd = n => Math.floor(Math.random() * n);
   const pick = (k, avoid = new Set()) => {
     const s = new Set();
-    while (s.size < k) { const p = rnd(80); if (!avoid.has(p)) s.add(p); }
+    while (s.size < k) { const p = rnd(152); if (!avoid.has(p)) s.add(p); }
     return [...s];
   };
   const corrupt = (cw, positions) => positions.forEach(p => { cw[p] ^= 1 + rnd(255); });
   let tally = { fixed: 0, rejected: 0 };
+  if (chronoEngine.dataSectors.reduce((a, b) => a + b, 0) < chronoEngine.numBytes * 8) throw new Error("rings have too few bits for the codeword");
   for (let t = 0; t < trials; t++) {
-    const data = Array.from({ length: 48 }, () => rnd(256));
-    const cw = [...data, ...GF256.rsEncode(data, 32)];
-    if (t === 0 && Array.from({ length: 32 }, (_, i) => GF256.polyEval(cw, GF256.pow2(i))).some(s => s)) {
+    const data = Array.from({ length: 104 }, () => rnd(256));
+    const cw = [...data, ...GF256.rsEncode(data, 48)];
+    if (t === 0 && Array.from({ length: 48 }, (_, i) => GF256.polyEval(cw, GF256.pow2(i))).some(s => s)) {
       throw new Error("clean codeword has non-zero syndromes");
     }
-    const f = rnd(33), e = rnd(Math.floor((32 - f) / 2) + 1);   // any mix with 2e + f <= 32
+    const f = rnd(49), e = rnd(Math.floor((48 - f) / 2) + 1);   // any mix with 2e + f <= 48
     const eras = pick(f), errs = pick(e, new Set(eras));
     const rx = [...cw]; corrupt(rx, [...eras, ...errs]);
-    const out = GF256.rsDecode(rx, 32, eras);
+    const out = GF256.rsDecode(rx, 48, eras);
     if (!out || out.some((b, i) => b !== cw[i])) throw new Error(`failed at e=${e} f=${f}`);
     tally.fixed++;
 
     // Over capacity: must never return a payload that passes CRC-32 but differs from the original
-    const payload = data.slice(0, 44);
-    const c = GF256.crc32(payload);
-    const good = [...payload, c >>> 24, (c >>> 16) & 0xFF, (c >>> 8) & 0xFF, c & 0xFF];
-    const gcw = [...good, ...GF256.rsEncode(good, 32)];
-    const bad = [...gcw]; corrupt(bad, pick(17 + rnd(20)));
+    const core = data.slice(0, 36);
+    const c = GF256.crc32(core);
+    const good = [...core, c >>> 24, (c >>> 16) & 0xFF, (c >>> 8) & 0xFF, c & 0xFF, ...data.slice(40)];
+    const gcw = [...good, ...GF256.rsEncode(good, 48)];
+    const bad = [...gcw]; corrupt(bad, pick(25 + rnd(30)));
     const dec = chronoEngine.decodePolar(bad, "");
-    if (dec.ok && GF256.rsDecode(bad, 32).some((b, i) => b !== gcw[i])) throw new Error("wrong payload passed CRC");
+    if (dec.ok && GF256.rsDecode(bad, 48).some((b, i) => b !== gcw[i])) throw new Error("wrong payload passed CRC");
     if (!dec.ok) tally.rejected++;
   }
 
-  // Payload v6 round trip: time exact, GPS within one quantization step, serial exact (packed and UTF-8)
+  // Payload v7 round trip: time exact, GPS within one quantization step, serial exact (packed and UTF-8)
   const gpsCases = [{ lat: 90, lon: -180 }, { lat: -90, lon: 180 }, { lat: 0, lon: 0 }, null];
   for (let t = 0; t < trials; t++) {
     const gps = t < gpsCases.length ? gpsCases[t] : (t % 5 ? { lat: Math.random() * 180 - 90, lon: Math.random() * 360 - 180 } : null);
     const metaStr = [
-      "AMB-2026-PUN-BATCH09-SN" + rnd(1e6),     // packed (6-bit)
+      "AMB-2026-PUN-SN" + rnd(1e6),     // packed (6-bit)
       "Lot 9 · Pune " + rnd(1000),              // UTF-8 fallback
-      "A".repeat(32),                            // packed maximum
+      "A".repeat(27),                            // packed maximum
       ""
     ][t % 4];
     const urlStr = "https://qx.example/id/" + t;
     const unixSec = QXChronoRegister.QX_EPOCH_UNIX_SEC + rnd(2 ** 31);
-    const p = QXPayloadV6.parse(QXPayloadV6.build({ unixSec, gps, urlStr, metaStr }), urlStr);
-    const gpsOk = gps ? !!p.gps && Math.abs(p.gps.lat - gps.lat) <= QXPayloadV6.GPS_STEP_LAT &&
-                         Math.abs(p.gps.lon - gps.lon) <= QXPayloadV6.GPS_STEP_LON
+    const p = QXPayloadV7.parse(QXPayloadV7.build({ unixSec, gps, urlStr, metaStr }), urlStr);
+    const gpsOk = gps ? !!p.gps && Math.abs(p.gps.lat - gps.lat) <= QXPayloadV7.GPS_STEP_LAT &&
+                         Math.abs(p.gps.lon - gps.lon) <= QXPayloadV7.GPS_STEP_LON
                       : p.gps === null;
-    if (p.layout !== 6 || p.unixSec !== unixSec || p.meta !== metaStr || !p.urlMatch || !gpsOk) {
+    if (p.layout !== 7 || p.unixSec !== unixSec || p.meta !== metaStr || !p.urlMatch || !gpsOk) {
       throw new Error(`payload round trip failed at t=${t}`);
     }
     tally.payloadRoundTrips = (tally.payloadRoundTrips || 0) + 1;
@@ -2094,9 +2084,14 @@ function runUrlSelfTest() {
 
 // Signature self-check. Run `await runSignatureSelfTest()` in the console; it throws on any failure.
 async function runSignatureSelfTest(trials = 100) {
-  // RFC 4231 test case 2: HMAC-SHA256("Jefe", "what do ya want for nothing?") starts 5bdcc146bf60754e
-  const rfc = await QXPayloadV6.hmacTag(new TextEncoder().encode("Jefe"), new TextEncoder().encode("what do ya want for nothing?"));
-  if (rfc.map(b => b.toString(16).padStart(2, "0")).join("") !== "5bdcc146bf60754e") throw new Error("HMAC vector mismatch");
+  // RFC 8032 test 1 (empty message): the public key and signature must match exactly
+  const hex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
+  const hx = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+  const rfcSeed = hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+  const { sign: rfcSign, verify: rfcVerify } = await QXPayloadV7.keysFromSeed(rfcSeed);
+  const rfcSig = hx(await crypto.subtle.sign("Ed25519", rfcSign, new Uint8Array(0)));
+  if (rfcSig !== "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b") throw new Error("Ed25519 vector mismatch");
+  if (!(await crypto.subtle.verify("Ed25519", rfcVerify, hex(rfcSig), new Uint8Array(0)))) throw new Error("Ed25519 verify failed on the RFC vector");
 
   const rnd = n => Math.floor(Math.random() * n);
   const tally = { verified: 0, tamperRejected: 0 };
@@ -2107,18 +2102,18 @@ async function runSignatureSelfTest(trials = 100) {
       unixSec: QXChronoRegister.QX_EPOCH_UNIX_SEC + rnd(2 ** 31),
       gps: t % 2 ? { lat: 18.52043, lon: 73.856743 } : null,
       urlStr,
-      metaStr: "AMB-2026-PUN-BATCH09-SN" + rnd(1e6)
+      metaStr: "AMB-2026-PUN-SN" + rnd(1e6)
     };
-    const p = await QXPayloadV6.buildSigned(fields, key);
-    if (!(await QXPayloadV6.verify(p, urlStr, key))) throw new Error(`valid signature rejected at t=${t}`);
+    const p = await QXPayloadV7.buildSigned(fields, key);
+    if (!(await QXPayloadV7.verify(p, urlStr, key))) throw new Error(`valid signature rejected at t=${t}`);
     tally.verified++;
 
-    // Each tamper must fail: flags, time, GPS, tag, serial bytes; swapped URL; wrong key
+    // Each tamper must fail: flags, time, GPS, URL slot, serial bytes, CRC-covered core, signature bytes; swapped URL; wrong key
     const otherKey = crypto.getRandomValues(new Uint8Array(32));
-    const cases = [0, 1 + rnd(4), 5 + rnd(6), 11 + rnd(8), 19 + rnd(25)].map(i => { const q = [...p]; q[i] ^= 1 + rnd(255); return [q, urlStr, key]; });
+    const cases = [0, 1 + rnd(4), 5 + rnd(6), 11 + rnd(4), 15 + rnd(21), 40 + rnd(64)].map(i => { const q = [...p]; q[i] ^= 1 + rnd(255); return [q, urlStr, key]; });
     cases.push([p, urlStr + "x", key], [p, urlStr, otherKey]);
     for (const [q, u, k] of cases) {
-      if (await QXPayloadV6.verify(q, u, k)) throw new Error(`tampered payload verified at t=${t}`);
+      if (await QXPayloadV7.verify(q, u, k)) throw new Error(`tampered payload verified at t=${t}`);
       tally.tamperRejected++;
     }
   }
@@ -2132,9 +2127,9 @@ function drawSample(el, url, meta) {
   try {
     const iso = new Date().toISOString().slice(0, 19) + "Z";
     const unixSec = QXChronoRegister.parseStrict(iso).unixSec;
-    const payload48 = QXPayloadV6.build({ unixSec, gps: null, urlStr: url, metaStr: meta });
+    const payload = QXPayloadV7.build({ unixSec, gps: null, urlStr: url, metaStr: meta });
     const { svgGroup } = chronoEngine.renderChronoMandala(url, meta, iso, {
-      dotScale: 0.37, colorChrono: true, showEmblem: true, showGuides: false, forExport: false, payload48
+      dotScale: 0.37, colorChrono: true, showEmblem: true, showGuides: false, forExport: false, payload
     });
     // Drop the studio's click-to-scratch hooks; these symbols are not interactive
     el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15.2 -15.2 30.4 30.4" aria-hidden="true" focusable="false">${svgGroup.replace(/ data-cluster="\d+"/g, "")}</svg>`;
