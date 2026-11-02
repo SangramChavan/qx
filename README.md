@@ -59,7 +59,7 @@ A 30 mm disc, from the centre out:
 | Time marks (48) | Date and time to the second plus CRC-8, in four crescents between the core and the rings. |
 | Data rings (152 bytes) | 12 data rings plus a sync ring. RS(152,104): 104 data bytes and 48 error-correction bytes. Repairs up to 24 unknown damaged bytes (up to 48 if a reader can mark which are damaged). |
 
-Payload v7 (104 bytes): layout and flags, 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), a 4-byte URL CRC-32 (unsigned symbols only), a 21-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, up to 27 characters, else UTF-8), a CRC-32 of those 36 bytes, and a 64-byte Ed25519 signature (zero when unsigned). The signature covers the QR URL and the 36 bytes above.
+Payload v8 (104 bytes): layout and flags (GPS, packed serial, signed, safety notice), item type (product, business, person, machine or asset), 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), the 8-character entity ID (5 bytes, optional), a 5-byte content digest (optional), a 14-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, up to 17 characters, else UTF-8), a CRC-32 of those 36 bytes, and a 64-byte Ed25519 signature (zero when unsigned). The signature covers the QR URL and the 36 bytes above. Unsigned symbols bind to their URL only through the entity ID.
 
 Limits of the symbol itself:
 

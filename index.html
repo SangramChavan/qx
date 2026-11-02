@@ -382,7 +382,7 @@
         </div>
         <div class="card">
           <h3>3. Data rings</h3>
-          <p>152 bytes: 104 of payload (time, optional GPS to about 1&ndash;2&nbsp;m, a serial, and an optional 64-byte Ed25519 signature) and 48 of Reed&ndash;Solomon error correction that repairs up to 24 damaged bytes.</p>
+          <p>152 bytes: 104 of payload (item type, time, optional GPS to about 1&ndash;2&nbsp;m, the item's ID, a content digest, a serial, and an optional 64-byte Ed25519 signature) and 48 of Reed&ndash;Solomon error correction that repairs up to 24 damaged bytes.</p>
         </div>
       </div>
     </div>
@@ -446,10 +446,32 @@
 
       <div class="control-group">
         <label for="qx-meta">
-          Serial / Batch (A-Z a-z 0-9 - _ packs to 32 chars, else 25 B UTF-8)
-          <span class="val" id="meta-byte-counter">0 / 25 B</span>
+          Serial / Batch (A-Z a-z 0-9 - _ packs to 17 chars, else 14 B UTF-8)
+          <span class="val" id="meta-byte-counter">0 / 14 B</span>
         </label>
-        <input type="text" id="qx-meta" value="AMB-2026-PUN-BATCH09" maxlength="27" />
+        <input type="text" id="qx-meta" value="AMB-PUN-BATCH09" maxlength="17" />
+      </div>
+
+      <div class="control-group">
+        <label for="qx-type">Item type (AI reads this before fetching the page)</label>
+        <select id="qx-type">
+          <option value="0">Product</option>
+          <option value="1">Business</option>
+          <option value="2">Person</option>
+          <option value="3">Machine</option>
+          <option value="4">Asset</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <span>Safety notice on this item (readers show it first)</span>
+        <input type="checkbox" id="qx-safety" />
+      </div>
+      <div class="control-group">
+        <label for="qx-digest">
+          Content digest (10 hex, optional: first 5 bytes of SHA-256 of the item's entity.json)
+          <span class="val" id="digest-status">Not included</span>
+        </label>
+        <input type="text" id="qx-digest" autocomplete="off" spellcheck="false" placeholder="e.g. 3f9a0c1b2d" maxlength="10" />
       </div>
 
       <div class="card-title" style="margin-top: 2px;">
@@ -1147,24 +1169,29 @@ const MultiVersionMatrix = {
  * ============================================================================
  */
 /**
- * Polar Payload v7: 104 data bytes, protected by RS(152,104) in the rings
- *   [0]      0x70 | flags      (high nibble = layout 7; flags: GPS, packed serial, Ed25519 signed)
- *   [1..4]   unix seconds      (32-bit, duplicates the chrono-spokes)
- *   [5..10]  GPS               (24-bit lat + 24-bit lon fixed point, zero if absent)
- *   [11..14] URL CRC-32        (unsigned only; zero when signed, the signature binds the URL)
- *   [15..35] serial / batch    (21 B: 6-bit packed when possible, else UTF-8)
+ * Polar Payload v8: 104 data bytes, protected by RS(152,104) in the rings
+ *   [0]      0x80 | flags      (high nibble = layout 8; flags: GPS, packed serial, signed, safety notice)
+ *   [1]      entity type << 5 | has-ID (bit 0) | has-digest (bit 1)
+ *   [2..5]   unix seconds      (32-bit, duplicates the chrono-spokes)
+ *   [6..11]  GPS               (24-bit lat + 24-bit lon fixed point, zero if absent)
+ *   [12..16] entity ID         (8 Crockford characters, 5 bits each, zero if absent)
+ *   [17..21] content digest    (first 5 bytes of SHA-256 of the item's entity.json, zero if absent)
+ *   [22..35] serial / batch    (14 B: 6-bit packed up to 17 characters, else UTF-8)
  *   [36..39] CRC-32 of [0..35]
  *   [40..103] Ed25519 signature over the domain tag, the URL and [0..35] (zero when unsigned)
  */
-const QXPayloadV7 = {
-  PROFILE: 0x70,
+const QXPayloadV8 = {
+  PROFILE: 0x80,
   F_GPS: 0x01,
   F_PACKED: 0x02,
   F_SIGNED: 0x04,
-  META_BYTES: 21,
-  PACKED_MAX_CHARS: 27,
+  F_SAFETY: 0x08,
+  META_BYTES: 14,
+  PACKED_MAX_CHARS: 17,
   CORE_BYTES: 36,   // before the CRC-32
   DATA_BYTES: 104,  // core + CRC-32 + signature
+  TYPES: ["product", "business", "person", "machine", "asset"],
+  ID_ALPHABET: "0123456789ABCDEFGHJKMNPQRSTVWXYZ",  // Crockford base32, as in scripts/build.mjs
   B64: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
   GPS_STEP_LAT: 180 / 0xFFFFFF,  // ~1.2 m
   GPS_STEP_LON: 360 / 0xFFFFFF,  // ~2.4 m at the equator
@@ -1220,16 +1247,37 @@ const QXPayloadV7 = {
     };
   },
 
-  // 36-byte core. Unsigned: URL slot = CRC-32(url). Signed: URL slot left zero, the signature binds the URL.
-  buildCore({ unixSec, gps, urlStr, metaStr, signed = false }) {
+  // 36-byte core. The URL is bound by the signature when signed, or by the entity ID when the URL has one.
+  // Packs an 8-character entity ID into 5 bytes (40 bits, 5 bits per character)
+  packId(id) {
+    let acc = 0;
+    for (const ch of id) acc = acc * 32 + this.ID_ALPHABET.indexOf(ch);
+    return [4, 3, 2, 1, 0].map(i => Math.floor(acc / 2 ** (8 * i)) & 0xFF);
+  },
+
+  unpackId(bytes) {
+    let acc = 0;
+    for (const b of bytes) acc = acc * 256 + b;
+    let s = "";
+    for (let i = 0; i < 8; i++) { s = this.ID_ALPHABET[acc % 32] + s; acc = Math.floor(acc / 32); }
+    return s;
+  },
+
+  // The ID is the /e/<ID>/ segment of a QX URL; null for any other URL
+  idFromUrl: urlStr => (urlStr.match(/\/e\/([0-9A-HJKMNP-TV-Z]{8})\//) || [])[1] || null,
+
+  buildCore({ unixSec, gps, urlStr, metaStr, signed = false, type = 0, digestHex = null, safety = false }) {
     const meta = this.encodeMeta(metaStr);
-    if (!meta.ok) throw new Error("Serial exceeds 21 bytes");  // callers validate first; never truncate
-    const flags = (gps ? this.F_GPS : 0) | (meta.packed ? this.F_PACKED : 0) | (signed ? this.F_SIGNED : 0);
+    if (!meta.ok) throw new Error("Serial exceeds 14 bytes");  // callers validate first; never truncate
+    const entityId = this.idFromUrl(urlStr);
+    const flags = (gps ? this.F_GPS : 0) | (meta.packed ? this.F_PACKED : 0) | (signed ? this.F_SIGNED : 0) | (safety ? this.F_SAFETY : 0);
     return [
       this.PROFILE | flags,
+      (type << 5) | (entityId ? 1 : 0) | (digestHex ? 2 : 0),
       ...this.u32(unixSec),
       ...(gps ? this.encodeGps(gps.lat, gps.lon) : [0, 0, 0, 0, 0, 0]),
-      ...(signed ? [0, 0, 0, 0] : this.u32(GF256.crc32(this.utf8(urlStr)))),
+      ...(entityId ? this.packId(entityId) : [0, 0, 0, 0, 0]),
+      ...(digestHex ? digestHex.match(/../g).map(h => parseInt(h, 16)) : [0, 0, 0, 0, 0]),
       ...meta.bytes
     ];
   },
@@ -1258,7 +1306,7 @@ const QXPayloadV7 = {
   // serial and flags (including the signed flag) can't be altered or swapped.
   signingInput(core36, urlStr) {
     const url = this.utf8(urlStr);
-    return new Uint8Array([...this.utf8("QX-HD/v7"), url.length >> 8, url.length & 0xFF, ...url, ...core36]);
+    return new Uint8Array([...this.utf8("QX-HD/v8"), url.length >> 8, url.length & 0xFF, ...url, ...core36]);
   },
 
   async keysFromSeed(seed) {
@@ -1298,15 +1346,22 @@ const QXPayloadV7 = {
     const u32At = i => ((cw[i] << 24) | (cw[i + 1] << 16) | (cw[i + 2] << 8) | cw[i + 3]) >>> 0;
     const flags = cw[0] & 0x0F;
     const signed = !!(flags & this.F_SIGNED);
+    const hasId = !!(cw[1] & 1), hasDigest = !!(cw[1] & 2);
+    const entityId = hasId ? this.unpackId(cw.slice(12, 17)) : null;
     return {
       layout: cw[0] >> 4,
       signed,
       data: cw.slice(0, 104),
-      unixSec: u32At(1),
-      gps: (flags & this.F_GPS) ? this.decodeGps(cw.slice(5, 11)) : null,
-      // Signed symbols bind the URL through the signature instead; check that with verify()
-      urlMatch: signed ? null : u32At(11) === GF256.crc32(this.utf8(urlStr)),
-      meta: this.decodeMeta(cw.slice(15, 36), !!(flags & this.F_PACKED))
+      type: this.TYPES[cw[1] >> 5] || null,
+      safety: !!(flags & this.F_SAFETY),
+      entityId,
+      digest: hasDigest ? cw.slice(17, 22).map(b => b.toString(16).padStart(2, "0")).join("") : null,
+      unixSec: u32At(2),
+      gps: (flags & this.F_GPS) ? this.decodeGps(cw.slice(6, 12)) : null,
+      // Signed symbols bind the URL through the signature (check with verify()). Unsigned ones bind only
+      // through the entity ID, so a URL without an /e/<ID>/ path cannot be bound: urlMatch is null.
+      urlMatch: signed ? null : (entityId ? entityId === this.idFromUrl(urlStr) : null),
+      meta: this.decodeMeta(cw.slice(22, 36), !!(flags & this.F_PACKED))
     };
   }
 };
@@ -1379,12 +1434,12 @@ class QXChronoEngine {
     let cw = GF256.rsDecode(rxLogical, this.parityBytes, erasures);
     if (cw && !crcOk(cw)) cw = null;  // beyond capacity RS can land on a wrong codeword; CRC-32 rejects it
     if (!cw) return { ok: false };
-    // A valid codeword from a different payload layout must not be read with the v7 field map
-    if ((cw[0] >> 4) !== QXPayloadV7.PROFILE >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
+    // A valid codeword from a different payload layout must not be read with the v8 field map
+    if ((cw[0] >> 4) !== QXPayloadV8.PROFILE >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
     return {
       ok: true,
       corrected: cw.filter((b, i) => b !== rxLogical[i]).length,
-      ...QXPayloadV7.parse(cw, urlStr)
+      ...QXPayloadV8.parse(cw, urlStr)
     };
   }
 
@@ -1440,7 +1495,7 @@ class QXChronoEngine {
     const chronoData = QXChronoRegister.encodeTimestampTo48Bits(chronoStr);
     // Callers pass a (possibly signed) 104-byte data block; fall back to an unsigned one
     const polarState = this.encodePolarState(urlStr,
-      payload || QXPayloadV7.build({ unixSec: chronoData.unixSec, gps, urlStr, metaStr }));
+      payload || QXPayloadV8.build({ unixSec: chronoData.unixSec, gps, urlStr, metaStr }));
     const parts = [];
 
     // 1. 30mm Circular Medallion Substrate
@@ -1618,6 +1673,10 @@ const ui = {
   gpsStatus: document.getElementById("gps-status"),
   decodedGps: document.getElementById("decoded-gps"),
   issuerKey: document.getElementById("issuer-key"),
+  qxType: document.getElementById("qx-type"),
+  qxSafety: document.getElementById("qx-safety"),
+  qxDigest: document.getElementById("qx-digest"),
+  digestStatus: document.getElementById("digest-status"),
   keyStatus: document.getElementById("key-status"),
   sigStatus: document.getElementById("sig-status"),
   sigStatusText: document.getElementById("sig-status-text"),
@@ -1678,19 +1737,23 @@ function readInputs() {
   if (!ts.ok) errors.ts = ts.err;
   const gps = parseGps(ui.gpsCoords.value);
   if (gps.err) errors.gps = gps.err;
-  const meta = QXPayloadV7.encodeMeta(metaStr);
-  if (!meta.ok) errors.meta = `Serial is ${meta.used} B (max ${QXPayloadV7.META_BYTES})`;
-  const k = QXPayloadV7.parseKeyHex(ui.issuerKey.value);
+  const meta = QXPayloadV8.encodeMeta(metaStr);
+  if (!meta.ok) errors.meta = `Serial is ${meta.used} B (max ${QXPayloadV8.META_BYTES})`;
+  const digestHex = ui.qxDigest.value.trim();
+  if (digestHex && !/^[0-9a-fA-F]{10}$/.test(digestHex)) errors.digest = "Digest must be 10 hex characters (5 bytes)";
+  const type = parseInt(ui.qxType.value, 10);
+  const safety = ui.qxSafety.checked;
+  const k = QXPayloadV8.parseKeyHex(ui.issuerKey.value);
   if (k.err) errors.key = k.err;
   else if (k.key && !(window.crypto && crypto.subtle)) errors.key = "Signing needs HTTPS or localhost";
 
-  return { urlStr, metaStr, chronoStr, gps: gps.value || null, meta, urlBytes, key: k.key || null, unixSec: ts.unixSec, urlWarn, errors };
+  return { urlStr, metaStr, chronoStr, gps: gps.value || null, meta, urlBytes, key: k.key || null, unixSec: ts.unixSec, type, safety, digestHex: digestHex || null, urlWarn, errors };
 }
 
-// Signed when an issuer key is present, otherwise the unsigned CRC-bound payload
+// Signed when an issuer key is present, otherwise the unsigned payload (bound by entity ID when the URL has one)
 async function buildPayload(inp) {
-  const fields = { unixSec: inp.unixSec, gps: inp.gps, urlStr: inp.urlStr, metaStr: inp.metaStr };
-  return inp.key ? QXPayloadV7.buildSigned(fields, inp.key) : QXPayloadV7.build(fields);
+  const fields = { unixSec: inp.unixSec, gps: inp.gps, urlStr: inp.urlStr, metaStr: inp.metaStr, type: inp.type, safety: inp.safety, digestHex: inp.digestHex };
+  return inp.key ? QXPayloadV8.buildSigned(fields, inp.key) : QXPayloadV8.build(fields);
 }
 
 const setVal = (el, text, isErr) => { el.textContent = text; el.style.color = isErr ? "var(--danger)" : ""; };
@@ -1712,13 +1775,14 @@ async function renderApp() {
   ui.dotScaleVal.textContent = `${dotScale.toFixed(2)} mod`;
 
   setVal(ui.metaCounter, meta.ok
-    ? `${meta.used} / ${QXPayloadV7.META_BYTES} B${meta.packed ? " packed" : " UTF-8"}`
-    : `${meta.used} / ${QXPayloadV7.META_BYTES} B too long`, !!errors.meta);
+    ? `${meta.used} / ${QXPayloadV8.META_BYTES} B${meta.packed ? " packed" : " UTF-8"}`
+    : `${meta.used} / ${QXPayloadV8.META_BYTES} B too long`, !!errors.meta);
   setVal(ui.gpsVal, errors.gps || (gps ? "Included (~1-2 m)" : "Not included"), !!errors.gps);
   if (errors.url) setVal(ui.urlCounter, errors.url, true);
   setVal(ui.urlNote, inp.urlWarn || (stripNote && stripNote.url === ui.qrUrl.value ? stripNote.text : ""), !!inp.urlWarn);
   if (errors.ts) setVal(ui.chronoEpochVal, errors.ts, true);
   setVal(ui.keyStatus, errors.key || (key ? "Signing (Ed25519)" : "Unsigned"), !!errors.key);
+  setVal(ui.digestStatus, errors.digest || (inp.digestHex ? "Included" : "Not included"), !!errors.digest);
 
   // Invalid input: say so and keep the last valid drawing; never encode a guessed or truncated value
   const errList = Object.values(errors);
@@ -1794,8 +1858,8 @@ async function renderApp() {
 
   // GPS round-trips within one quantization step
   const gpsMatch = dec.ok && (gps
-    ? !!dec.gps && Math.abs(dec.gps.lat - gps.lat) <= QXPayloadV7.GPS_STEP_LAT &&
-      Math.abs(dec.gps.lon - gps.lon) <= QXPayloadV7.GPS_STEP_LON
+    ? !!dec.gps && Math.abs(dec.gps.lat - gps.lat) <= QXPayloadV8.GPS_STEP_LAT &&
+      Math.abs(dec.gps.lon - gps.lon) <= QXPayloadV8.GPS_STEP_LON
     : !dec.gps);
   if (dec.ok && dec.gps) {
     ui.gpsStatus.className = `status-pill ${gpsMatch ? "status-ok" : "status-fail"}`;
@@ -1808,7 +1872,7 @@ async function renderApp() {
   // Signature check on the decoded bytes (needs the issuer key); unsigned symbols fall back to the URL CRC
   let sigOk = null;
   if (dec.ok && dec.signed && key) {
-    sigOk = await QXPayloadV7.verify(dec.data, urlStr, key);
+    sigOk = await QXPayloadV8.verify(dec.data, urlStr, key);
     if (seq !== renderSeq) return;
   }
   if (!dec.ok) {
@@ -1821,7 +1885,9 @@ async function renderApp() {
     ui.sigStatus.className = `status-pill ${sigOk ? "status-ok" : "status-fail"}`;
     ui.sigStatusText.textContent = sigOk ? "ED25519 VERIFIED" : (key ? "SIGNATURE INVALID" : "SIGNED (NO KEY TO VERIFY)");
   }
-  const bound = dec.signed ? sigOk === true : dec.urlMatch;
+  const bound = dec.signed ? sigOk === true : dec.urlMatch === true;
+  // Unsigned symbols on a URL with no /e/<ID>/ path have nothing to bind the URL to
+  const unbound = dec.ok && !dec.signed && dec.urlMatch === null;
 
   if (dec.ok && dec.meta === metaStr && bound && gpsMatch) {
     ui.polarStatus.className = "status-pill status-ok";
@@ -1831,7 +1897,7 @@ async function renderApp() {
     ui.crcBadge.textContent = dec.signed ? "ED25519 + CRC VALID" : "CRC-32 + CRC-8 VALID";
   } else {
     ui.polarStatus.className = "status-pill status-fail";
-    ui.polarStatusText.textContent = dec.ok ? "DECODED BUT MISMATCH"
+    ui.polarStatusText.textContent = unbound ? "UNSIGNED: URL NOT BOUND (NO /e/ID/)" : dec.ok ? "DECODED BUT MISMATCH"
       : dec.unknownLayout !== undefined ? `UNKNOWN PAYLOAD LAYOUT v${dec.unknownLayout}`
       : "DECODE FAILED (>24 BAD BYTES)";
     ui.crcBadge.textContent = "DECODE HALTED";
@@ -1850,7 +1916,7 @@ async function renderApp() {
   }).join("");
 }
 
-[ui.qrUrl, ui.qxMeta, ui.chronoIso, ui.gpsCoords, ui.issuerKey, ui.dotScale, ui.chkColorChrono, ui.chkEmblem, ui.chkGuides].forEach(el => {
+[ui.qrUrl, ui.qxMeta, ui.chronoIso, ui.gpsCoords, ui.issuerKey, ui.qxType, ui.qxSafety, ui.qxDigest, ui.dotScale, ui.chkColorChrono, ui.chkEmblem, ui.chkGuides].forEach(el => {
   el.addEventListener("input", renderApp);
 });
 
@@ -2039,23 +2105,23 @@ function runPolarSelfTest(trials = 300) {
     if (!dec.ok) tally.rejected++;
   }
 
-  // Payload v7 round trip: time exact, GPS within one quantization step, serial exact (packed and UTF-8)
+  // Payload v8 round trip: time exact, GPS within one quantization step, serial exact (packed and UTF-8)
   const gpsCases = [{ lat: 90, lon: -180 }, { lat: -90, lon: 180 }, { lat: 0, lon: 0 }, null];
   for (let t = 0; t < trials; t++) {
     const gps = t < gpsCases.length ? gpsCases[t] : (t % 5 ? { lat: Math.random() * 180 - 90, lon: Math.random() * 360 - 180 } : null);
     const metaStr = [
-      "AMB-2026-PUN-SN" + rnd(1e6),     // packed (6-bit)
-      "Lot 9 · Pune " + rnd(1000),              // UTF-8 fallback
-      "A".repeat(27),                            // packed maximum
+      "AMB-PUN-SN" + rnd(1e6),                // packed (6-bit)
+      "Lot 9 · " + rnd(100),                   // UTF-8 fallback
+      "A".repeat(17),                            // packed maximum
       ""
     ][t % 4];
-    const urlStr = "https://qx.example/id/" + t;
+    const urlStr = "https://qx.example/e/GD9GGWXP/" + t;
     const unixSec = QXChronoRegister.QX_EPOCH_UNIX_SEC + rnd(2 ** 31);
-    const p = QXPayloadV7.parse(QXPayloadV7.build({ unixSec, gps, urlStr, metaStr }), urlStr);
-    const gpsOk = gps ? !!p.gps && Math.abs(p.gps.lat - gps.lat) <= QXPayloadV7.GPS_STEP_LAT &&
-                         Math.abs(p.gps.lon - gps.lon) <= QXPayloadV7.GPS_STEP_LON
+    const p = QXPayloadV8.parse(QXPayloadV8.build({ unixSec, gps, urlStr, metaStr }), urlStr);
+    const gpsOk = gps ? !!p.gps && Math.abs(p.gps.lat - gps.lat) <= QXPayloadV8.GPS_STEP_LAT &&
+                         Math.abs(p.gps.lon - gps.lon) <= QXPayloadV8.GPS_STEP_LON
                       : p.gps === null;
-    if (p.layout !== 7 || p.unixSec !== unixSec || p.meta !== metaStr || !p.urlMatch || !gpsOk) {
+    if (p.layout !== 8 || p.unixSec !== unixSec || p.meta !== metaStr || !p.urlMatch || !gpsOk) {
       throw new Error(`payload round trip failed at t=${t}`);
     }
     tally.payloadRoundTrips = (tally.payloadRoundTrips || 0) + 1;
@@ -2088,7 +2154,7 @@ async function runSignatureSelfTest(trials = 100) {
   const hex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
   const hx = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
   const rfcSeed = hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
-  const { sign: rfcSign, verify: rfcVerify } = await QXPayloadV7.keysFromSeed(rfcSeed);
+  const { sign: rfcSign, verify: rfcVerify } = await QXPayloadV8.keysFromSeed(rfcSeed);
   const rfcSig = hx(await crypto.subtle.sign("Ed25519", rfcSign, new Uint8Array(0)));
   if (rfcSig !== "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b") throw new Error("Ed25519 vector mismatch");
   if (!(await crypto.subtle.verify("Ed25519", rfcVerify, hex(rfcSig), new Uint8Array(0)))) throw new Error("Ed25519 verify failed on the RFC vector");
@@ -2097,23 +2163,23 @@ async function runSignatureSelfTest(trials = 100) {
   const tally = { verified: 0, tamperRejected: 0 };
   for (let t = 0; t < trials; t++) {
     const key = crypto.getRandomValues(new Uint8Array(32));
-    const urlStr = "https://qx.example/id/" + t;
+    const urlStr = "https://qx.example/e/GD9GGWXP/" + t;
     const fields = {
       unixSec: QXChronoRegister.QX_EPOCH_UNIX_SEC + rnd(2 ** 31),
       gps: t % 2 ? { lat: 18.52043, lon: 73.856743 } : null,
       urlStr,
-      metaStr: "AMB-2026-PUN-SN" + rnd(1e6)
+      metaStr: "AMB-PUN-SN" + rnd(1e6)
     };
-    const p = await QXPayloadV7.buildSigned(fields, key);
-    if (!(await QXPayloadV7.verify(p, urlStr, key))) throw new Error(`valid signature rejected at t=${t}`);
+    const p = await QXPayloadV8.buildSigned(fields, key);
+    if (!(await QXPayloadV8.verify(p, urlStr, key))) throw new Error(`valid signature rejected at t=${t}`);
     tally.verified++;
 
     // Each tamper must fail: flags, time, GPS, URL slot, serial bytes, CRC-covered core, signature bytes; swapped URL; wrong key
     const otherKey = crypto.getRandomValues(new Uint8Array(32));
-    const cases = [0, 1 + rnd(4), 5 + rnd(6), 11 + rnd(4), 15 + rnd(21), 40 + rnd(64)].map(i => { const q = [...p]; q[i] ^= 1 + rnd(255); return [q, urlStr, key]; });
+    const cases = [0, 1 + rnd(4), 5 + rnd(6), 12 + rnd(5), 17 + rnd(5), 22 + rnd(14), 40 + rnd(64)].map(i => { const q = [...p]; q[i] ^= 1 + rnd(255); return [q, urlStr, key]; });
     cases.push([p, urlStr + "x", key], [p, urlStr, otherKey]);
     for (const [q, u, k] of cases) {
-      if (await QXPayloadV7.verify(q, u, k)) throw new Error(`tampered payload verified at t=${t}`);
+      if (await QXPayloadV8.verify(q, u, k)) throw new Error(`tampered payload verified at t=${t}`);
       tally.tamperRejected++;
     }
   }
@@ -2127,7 +2193,7 @@ function drawSample(el, url, meta) {
   try {
     const iso = new Date().toISOString().slice(0, 19) + "Z";
     const unixSec = QXChronoRegister.parseStrict(iso).unixSec;
-    const payload = QXPayloadV7.build({ unixSec, gps: null, urlStr: url, metaStr: meta });
+    const payload = QXPayloadV8.build({ unixSec, gps: null, urlStr: url, metaStr: meta });
     const { svgGroup } = chronoEngine.renderChronoMandala(url, meta, iso, {
       dotScale: 0.37, colorChrono: true, showEmblem: true, showGuides: false, forExport: false, payload
     });

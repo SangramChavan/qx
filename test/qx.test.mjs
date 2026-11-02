@@ -198,6 +198,14 @@ test("private-by-default types are noindex and left out of the sitemap", () => {
   assert.ok(isIndexable({ type: "person", indexable: true }), "an owner can opt in");
 });
 
+test("llms.txt lists indexable items with their data links, and leaves out private-by-default ones", () => {
+  const { files } = plan();
+  const txt = files["llms.txt"];
+  for (const t of ["product", "business"]) assert.ok(txt.includes(`${ID[t]}/entity.json`), t);
+  for (const t of ["person", "machine", "asset"]) assert.ok(!txt.includes(ID[t]), t);
+  assert.ok(txt.startsWith("# QX\n"));
+});
+
 test("person pages ship a vCard", () => {
   const { files } = plan();
   const v = files[`e/${ID.person}/contact.vcf`];
