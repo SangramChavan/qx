@@ -1281,6 +1281,18 @@ const QXPayloadV7 = {
     return crypto.subtle.verify("Ed25519", verify, new Uint8Array(data104.slice(40, 104)), this.signingInput(data104.slice(0, 36), urlStr));
   },
 
+  // Reader-side trust: a signature counts only if its public key is on the reader's trust list.
+  // Returns the matching issuer's name, or null when no trusted key verifies the block.
+  async verifyTrusted(data104, urlStr, trustList) {
+    const msg = this.signingInput(data104.slice(0, 36), urlStr);
+    const sig = new Uint8Array(data104.slice(40, 104));
+    for (const issuer of trustList) {
+      const pub = await crypto.subtle.importKey("raw", new Uint8Array(issuer.publicKeyHex.match(/../g).map(h => parseInt(h, 16))), { name: "Ed25519" }, false, ["verify"]);
+      if (await crypto.subtle.verify("Ed25519", pub, sig, msg)) return issuer.name;
+    }
+    return null;
+  },
+
   // Assumes the codeword already passed RS + CRC-32
   parse(cw, urlStr) {
     const u32At = i => ((cw[i] << 24) | (cw[i + 1] << 16) | (cw[i + 2] << 8) | cw[i + 3]) >>> 0;
