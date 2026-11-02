@@ -1,0 +1,8 @@
+# QX
+
+> Open-source round QR codes. Each item below has a page for people and a machine-readable record.
+
+## Items
+
+- [Brew Lane Café](https://qx.tapinhere.com/e/8M5HS8RG/): business. A neighbourhood café serving fresh coffee and daily-baked pastries. This is a fictional demonstration page showing how a QX opens a business. Data: https://qx.tapinhere.com/e/8M5HS8RG/entity.json
+- [Volt 20W USB-C Charger](https://qx.tapinhere.com/e/GD9GGWXP/): product. A compact 20 W USB-C wall charger for phones and tablets. This is a demonstration page showing how a QX opens a product. Data: https://qx.tapinhere.com/e/GD9GGWXP/entity.json

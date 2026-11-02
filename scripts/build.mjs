@@ -292,6 +292,10 @@ export function planEntries(entries) {
   const pages = entities.filter(isIndexable).map(e => `  <url>\n    <loc>${ORIGIN}/e/${e.id}/</loc>\n    <lastmod>${e.updated}</lastmod>\n  </url>`);
   const latest = entities.map(e => e.updated).sort().pop() || "2026-11-01";
   files["sitemap.xml"] = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>${ORIGIN}/</loc>\n    <lastmod>${latest}</lastmod>\n  </url>\n${pages.join("\n")}\n</urlset>\n`;
+  // Plain-text catalogue for AI agents. Only indexable items: private-by-default pages stay out of it, as they do the sitemap.
+  const catalogue = entities.filter(isIndexable).sort((a, b) => a.id.localeCompare(b.id))
+    .map(e => `- [${e.title}](${ORIGIN}/e/${e.id}/): ${e.type}. ${shorten(e.summary, 155)} Data: ${ORIGIN}/e/${e.id}/entity.json`);
+  files["llms.txt"] = `# QX\n\n> Open-source round QR codes. Each item below has a page for people and a machine-readable record.\n\n## Items\n\n${catalogue.join("\n")}\n`;
   return { files, errors, count: entities.length };
 }
 
