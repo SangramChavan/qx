@@ -1,0 +1,26 @@
+{
+  "plain": {
+    "payload": "2ee3601ddca54afe14cd9a128cb0d3309550eb5e0c6344df7e793f54ade9d4a4",
+    "physical": "c2fcc7dc146a773ad57fc02091789fe18ba2e89a9ba1877b979b6c96c07cf113",
+    "rings": "1bf1688b0f645146fd5aa7dd402a753f3681f04d49856ad6dc2caa513e2d7dcd",
+    "svg": "ad54aba9cd8e4e8b9154b5c74f074e1a81e3f23894d17dd3c79b1b5cb287235a"
+  },
+  "plain-signed": {
+    "payload": "c2566f59b9c2c8df6e5c39c320a06bbd53d55b52a5085d67d1309ab9a225e8e6",
+    "physical": "2247181589d5bb7590d927f3fbd30d949ab7669df2e9e2d176531836b0fcc8c0",
+    "rings": "d38b90e71455cb6c7fde0db40e76e3addac73dcd8a616b82b2c9c461775f8262",
+    "svg": "39e91c12354d456fba1a33272f4662cd560c2dff044d7137d353bb41f6f1e9f9"
+  },
+  "full": {
+    "payload": "050606c7c281f55c8de1639b851514ccbbf50b7cfd75aecae7039b74b5116fcf",
+    "physical": "6e6bf80c41bf218c54b828ad2bf8e4e36ec778a86c0fbaa0c9569ec8da3ee991",
+    "rings": "37eccd82281314c2778c9c592cb09acca57878f3f9af52500abc1e0068a511e6",
+    "svg": "85039f767f8a683d47e000b9811646686b57256a413d65679f0fe0a7a0f1c4b7"
+  },
+  "full-signed": {
+    "payload": "2e8cfa5e4632f48ef792373444ba0b204bbacc15c3c647b0202cc4346fe16c11",
+    "physical": "3705922afa2f1ab3ff2edb8e03a6bbe588082ba2a79c95fb5461c251b087ba39",
+    "rings": "e064d9fdae49c1fb234ee74187dd44554540a16ce8ba3f479577f5d05fe3a882",
+    "svg": "9413461140dc97462c66ba8b6e52476469f2a4a11310e765da3d8bbb91ee3288"
+  }
+}
