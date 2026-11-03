@@ -159,7 +159,8 @@ const CANDIDATES = {
   business: ["What services do you offer?", "What are the opening hours?", "Where are you located?", "How do I contact you?"],
   person: ["What is your role?", "How can I contact you?", "Where are you based?", "What do you work on?"],
   machine: ["What are the safety rules?", "What maintenance is needed?", "How do I fix a fault?", "What are the specifications?", "Who do I contact for support?"],
-  asset: ["Who is it assigned to?", "Where is it located?", "When was it last serviced?", "How do I report an issue?"]
+  asset: ["Who is it assigned to?", "Where is it located?", "When was it last serviced?", "How do I report an issue?"],
+  services: ["What services do you offer?", "What is included?", "Where do you work?", "How do I book?", "How do I contact you?"]
 };
 
 // Only suggest questions this item can actually answer

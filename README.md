@@ -14,7 +14,7 @@ scan  ->  instant context  ->  useful information  ->  ask when needed  ->  done
 
 1. The phone camera reads the QR core of the symbol. It holds a short, permanent address: `https://qx.tapinhere.com/e/<ID>/`.
 2. That address is a pre-built static page, so it loads fast and shows its core information even with JavaScript off.
-3. The page layout depends on the type: **product**, **business**, **person**, **machine** or **asset** each get their own sections and buttons (call, directions, support, save contact, report a fault).
+3. The page layout depends on the type: **product**, **business**, **person**, **machine**, **asset** or **services** each get their own sections and buttons (call, directions, support, save contact, report a fault).
 4. "Ask about this item" runs in the browser. It finds passages in that page's own information and quotes them with their section name. It never writes new text, makes no network request, and says so when something is not in the information.
 5. The address never changes. Editing the information changes the page, not the printed code.
 
@@ -30,7 +30,7 @@ node --test test/qx.test.mjs
 - **ID:** 8 characters from `0-9 A-H J K M N P-T V-Z` (no I, L, O, U), the same alphabet Tap In Here tags use. IDs must differ from each other in at least 3 characters. A lower-case or mistyped ID is redirected by `404.html`.
 - **Fields:** `type`, `title`, `subtitle`, `summary`, `badges`, `facts` (label/value), `sections` (`text`, `list`, `steps`, `callout`, `table`), `documents`, `faqs`, `records` (dated history), `actions`, `updated`. See the five demos in `entities/`.
 - **Actions:** `call` (`tel:`), `email` (`mailto:`), `whatsapp` (`https://wa.me/`), `directions` and `link` (`https://` only), and `vcard` for people (the file is generated for you).
-- **Search engines:** product and business pages are indexed; person, machine and asset pages are `noindex` and left out of the sitemap unless you set `"indexable": true`.
+- **Search engines:** product, business and services pages are indexed; person, machine and asset pages are `noindex` and left out of the sitemap unless you set `"indexable": true`.
 
 The build rejects unknown fields, unsafe links and malformed data, and escapes all text. Pages carry a strict content-security policy with no inline scripts or styles.
 
@@ -59,7 +59,7 @@ A 30 mm disc, from the centre out:
 | Time marks (48) | Date and time to the second plus CRC-8, in four crescents between the core and the rings. |
 | Data rings (152 bytes) | 12 data rings plus a sync ring. RS(152,104): 104 data bytes and 48 error-correction bytes. Repairs up to 24 unknown damaged bytes (up to 48 if a reader can mark which are damaged). |
 
-Payload v8 (104 bytes): layout and flags (GPS, packed serial, signed, safety notice), item type (product, business, person, machine or asset), 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), the 8-character entity ID (5 bytes, optional), a 5-byte content digest (optional), a 14-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, up to 17 characters, else UTF-8), a CRC-32 of those 36 bytes, and a 64-byte Ed25519 signature (zero when unsigned). The signature covers the QR URL and the 36 bytes above. Unsigned symbols bind to their URL only through the entity ID.
+Payload v8 (104 bytes): layout and flags (GPS, packed serial, signed, safety notice), item type (product, business, person, machine, asset or services), 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), the 8-character entity ID (5 bytes, optional), a 5-byte content digest (optional), a 14-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, up to 17 characters, else UTF-8), a CRC-32 of those 36 bytes, and a 64-byte Ed25519 signature (zero when unsigned). The signature covers the QR URL and the 36 bytes above. Unsigned symbols bind to their URL only through the entity ID.
 
 Limits of the symbol itself:
 
