@@ -1,6 +1,6 @@
 # QX
 
-> Open-source round QR codes. Each item below has a page for people and a machine-readable record.
+> A universal visual language for identity, authentication and AI-readable provenance: open-source round codes built on a standard QR core. Each item below has a page for people and a machine-readable record.
 
 ## Items
 

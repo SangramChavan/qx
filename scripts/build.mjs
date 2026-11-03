@@ -297,7 +297,7 @@ export function planEntries(entries) {
   // Plain-text catalogue for AI agents. Only indexable items: private-by-default pages stay out of it, as they do the sitemap.
   const catalogue = entities.filter(isIndexable).sort((a, b) => a.id.localeCompare(b.id))
     .map(e => `- [${e.title}](${ORIGIN}/e/${e.id}/): ${e.type}. ${shorten(e.summary, 155)} Data: ${ORIGIN}/e/${e.id}/entity.json`);
-  files["llms.txt"] = `# QX\n\n> Open-source round QR codes. Each item below has a page for people and a machine-readable record.\n\n## Items\n\n${catalogue.join("\n")}\n`;
+  files["llms.txt"] = `# QX\n\n> A universal visual language for identity, authentication and AI-readable provenance: open-source round codes built on a standard QR core. Each item below has a page for people and a machine-readable record.\n\n## Items\n\n${catalogue.join("\n")}\n`;
   return { files, errors, count: entities.length };
 }
 

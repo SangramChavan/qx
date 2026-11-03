@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QX: Open-Source Round QR Code with Signed Data</title>
-  <meta name="description" content="QX is an open-source round QR code. Scan it with any phone camera to see what it is and ask questions about it, no app needed." />
+  <title>QX: Universal Visual Language for Identity and Provenance</title>
+  <meta name="description" content="QX is a universal visual language for identity, authentication and AI-readable provenance: an open-source round code any phone camera opens, no app needed." />
   <meta name="theme-color" content="#070a12" />
   <link rel="canonical" href="https://qx.tapinhere.com/" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23070a12' stroke='%2338bdf8' stroke-width='2'/%3E%3Crect x='11' y='11' width='10' height='10' fill='%23f8fafc'/%3E%3C/svg%3E" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="QX" />
-  <meta property="og:title" content="QX: Open-Source Round QR Code with Signed Data" />
-  <meta property="og:description" content="Scan a QX with any phone camera to see what it is and ask questions about it. Open source, no app needed." />
+  <meta property="og:title" content="QX: A universal visual language for identity, authentication and AI-readable provenance" />
+  <meta property="og:description" content="An open-source round code any phone camera opens, no app needed. Issuers can sign it, and each page publishes a record people and AI agents can read." />
   <meta property="og:url" content="https://qx.tapinhere.com/" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="QX: Open-Source Round QR Code with Signed Data" />
-  <meta name="twitter:description" content="Scan a QX with any phone camera to see what it is and ask questions about it. Open source, no app needed." />
+  <meta name="twitter:title" content="QX: A universal visual language for identity, authentication and AI-readable provenance" />
+  <meta name="twitter:description" content="An open-source round code any phone camera opens, no app needed. Issuers can sign it, and each page publishes a record people and AI agents can read." />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "QX Studio",
     "url": "https://qx.tapinhere.com/",
-    "description": "Open-source round QR code generator. A standard QR core readable by any phone camera, wrapped in Reed-Solomon-protected rings carrying time, optional GPS, a serial number and an optional Ed25519 signature.",
+    "description": "Open-source studio for QX, a universal visual language for identity, authentication and AI-readable provenance. A standard QR core readable by any phone camera, wrapped in Reed-Solomon-protected rings carrying time, optional GPS, a serial number and an optional Ed25519 signature.",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Any modern web browser",
     "isAccessibleForFree": true,
@@ -334,8 +334,8 @@
     <div class="hero">
       <div>
         <span class="badge badge-chrono">OPEN SOURCE &middot; MIT &middot; DRAFT SPEC v2.5</span>
-        <h1 style="margin-top:12px;">Scan it. See what it is. Ask about it.</h1>
-        <p class="lede">QX is a round QR code. Any phone camera opens its page in the browser, which shows what it is attached to (a product, business, service, person, machine or asset) with the right information and buttons, and lets you ask questions answered from that item&rsquo;s own information. No app, no sign-up. Behind it, rings carry the time, an optional GPS position and a serial number that survive scratches.</p>
+        <h1 style="margin-top:12px;">A universal visual language for identity, authentication and AI-readable provenance.</h1>
+        <p class="lede">QX is a round code any phone camera can open, with no app or sign-up. Its permanent address leads to a page that says what it identifies: a product, business, service, person, machine or asset. An issuer can sign the code with Ed25519 to show who issued it. Rings around the core record the time, an optional GPS position and a serial number that survive scratches, and each page publishes its record as JSON that software and AI agents can read.</p>
         <div class="cta-row">
           <a class="cta primary" href="#demos">Scan a demo</a>
           <a class="cta" href="#studio">Open the studio</a>
@@ -347,7 +347,7 @@
 
     <div id="scan">
       <h2>What happens when you scan</h2>
-      <p class="section-lede">No app, no sign-up, no setup. Scan it like any QR code.</p>
+      <p class="section-lede">Scan it. See what it is. Ask about it. No app, no sign-up, no setup.</p>
       <ol>
         <li>Your ordinary phone camera reads the code and opens the QX in the browser.</li>
         <li>The page shows what the code belongs to, with the information and buttons that fit it: call, directions, support, save contact, report a fault.</li>
@@ -390,7 +390,7 @@
     <div>
       <h2>Where it fits</h2>
       <ul>
-        <li>Product authentication: a signed link on a label tells buyers the unit is genuine, and the issuer can see repeat scans.</li>
+        <li>Product authentication: a signed code on a label shows who issued it. Spotting copies also needs server-side scan checks or a chip.</li>
         <li>Asset tags and inventory: serial, commissioning time and place, readable offline once a reader exists.</li>
         <li>NFC + QR tags (pet, luggage, accessories): a printed fallback next to a tap-to-read chip.</li>
         <li>Event tickets: a live on-screen code whose timestamp changes every second, so screenshots go stale.</li>

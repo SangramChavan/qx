@@ -2,7 +2,7 @@
   "name": "qx",
   "private": true,
   "type": "module",
-  "description": "QX: open-source round QR code with signed, scratch-tolerant data, and scan-to-context pages.",
+  "description": "QX: a universal visual language for identity, authentication and AI-readable provenance.",
   "license": "MIT",
   "scripts": {
     "build": "node scripts/build.mjs",

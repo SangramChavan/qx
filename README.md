@@ -1,6 +1,8 @@
 # QX
 
-An open-source round QR code, by [Tap In Here](https://tapinhere.com). Scan it with any phone camera: it opens a page in the browser that shows what the code is attached to, with the right information and buttons, and lets you ask questions answered from that item's own information. No app, no sign-up.
+**A universal visual language for identity, authentication and AI-readable provenance.**
+
+An open-source round code built on a standard QR core, by [Tap In Here](https://tapinhere.com). Scan it with any phone camera: it opens a page in the browser that shows what the code is attached to, with the right information and buttons, and lets you ask questions answered from that item's own information. No app, no sign-up.
 
 **Live:** https://qx.tapinhere.com (landing, demos and the studio that draws the symbols)
 
