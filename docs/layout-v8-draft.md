@@ -1,6 +1,6 @@
 # QX-HD payload v8 (draft, not implemented)
 
-Status: draft for review. No code changes yet. v7 stays the shipped layout.
+Status: historical. v8 has shipped (see `QXPayloadV8` in `index.html`); the reserved bits below are now used. Layout 9, which adds the lifecycle region, is in [lifecycle-spec.md](lifecycle-spec.md).
 
 ## Goal
 

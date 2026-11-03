@@ -24,7 +24,7 @@ Each page is one JSON file in `entities/`, named after its ID.
 
 ```bash
 node scripts/build.mjs     # validate everything and write e/<ID>/ pages and sitemap.xml
-node --test test/qx.test.mjs
+npm test                   # every test/*.test.mjs, including the real engine code from index.html
 ```
 
 - **ID:** 8 characters from `0-9 A-H J K M N P-T V-Z` (no I, L, O, U), the same alphabet Tap In Here tags use. IDs must differ from each other in at least 3 characters. A lower-case or mistyped ID is redirected by `404.html`.
@@ -60,6 +60,8 @@ A 30 mm disc, from the centre out:
 | Data rings (152 bytes) | 12 data rings plus a sync ring. RS(152,104): 104 data bytes and 48 error-correction bytes. Repairs up to 24 unknown damaged bytes (up to 48 if a reader can mark which are damaged). |
 
 Payload v8 (104 bytes): layout and flags (GPS, packed serial, signed, safety notice), item type (product, business, person, machine, asset or services), 32-bit unix time, optional GPS (24-bit lat and lon, about 1.2 m by 2.4 m), the 8-character entity ID (5 bytes, optional), a 5-byte content digest (optional), a 14-byte serial (6-bit packed for `A-Z a-z 0-9 - _`, up to 17 characters, else UTF-8), a CRC-32 of those 36 bytes, and a 64-byte Ed25519 signature (zero when unsigned). The signature covers the QR URL and the 36 bytes above. Unsigned symbols bind to their URL only through the entity ID.
+
+Lifecycle data (optional): warranty, guarantee, expiry, best-before, after-opening, service, licence and certification records. A symbol that carries them uses payload v9: the same 104 bytes plus a 24-byte lifecycle region, in RS(184,128) over the full ring area (28 correctable bytes). It is signed with the rest when an issuer key is present. Codes without lifecycle data are unchanged. See [docs/lifecycle-spec.md](docs/lifecycle-spec.md).
 
 Limits of the symbol itself:
 

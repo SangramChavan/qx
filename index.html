@@ -474,6 +474,14 @@
         </label>
         <input type="text" id="qx-digest" autocomplete="off" spellcheck="false" placeholder="e.g. 3f9a0c1b2d" maxlength="10" />
       </div>
+      <div class="control-group">
+        <label for="qx-lifecycle">
+          Lifecycle records (optional: 2Y-W, 6M-O, 2027-01-01-E; add @P to name the start event)
+          <span class="val" id="lifecycle-status">Not included</span>
+        </label>
+        <input type="text" id="qx-lifecycle" autocomplete="off" spellcheck="false" placeholder="e.g. 2Y-W@P, 1Y-G@P, 6M-O" />
+        <input type="text" id="qx-lc-dates" autocomplete="off" spellcheck="false" placeholder="Event dates, e.g. P=2026-11-03, M=2026-09-01 (M P A O I D)" style="margin-top:6px" />
+      </div>
 
       <div class="card-title" style="margin-top: 2px;">
         <span>2. 48-Bit Chrono-Spoke Timestamp Register</span>
@@ -600,6 +608,17 @@
         <span id="polar-status-text">152/152 BYTES INTACT</span>
       </div>
 
+      <div id="lifecycle-panel" class="control-group" hidden>
+        <label>
+          <span>PRODUCT LIFECYCLE</span>
+          <span class="val" id="lifecycle-auth"></span>
+        </label>
+        <div id="lifecycle-rows"></div>
+        <label for="lc-today" style="margin-top:6px"><span>Reader date and Expiring Soon threshold (days)</span></label>
+        <input type="date" id="lc-today" style="width:48%" />
+        <input type="number" id="lc-soon" min="0" max="3650" value="30" style="width:48%" />
+      </div>
+
       <div class="stat-grid">
         <div class="stat-box">
           <div class="stat-label">Chrono-Spoke Payload</div>
@@ -628,7 +647,7 @@
 
       <div class="control-group">
         <label>
-          <span>152-Byte Outer Polar Codeword Map (Click sectors to scratch)</span>
+          <span>Outer Polar Codeword Map, 152 B (184 B with lifecycle). Click sectors to scratch</span>
           <span class="val">48B Data + 32B RS</span>
         </label>
         <div class="hex-dump" id="codeword-dump"></div>
@@ -1180,9 +1199,17 @@ const MultiVersionMatrix = {
  *   [22..35] serial / batch    (14 B: 6-bit packed up to 17 characters, else UTF-8)
  *   [36..39] CRC-32 of [0..35]
  *   [40..103] Ed25519 signature over the domain tag, the URL and [0..35] (zero when unsigned)
+ *
+ * Layout 9 (only when a lifecycle object is present) is the same 104 bytes plus
+ *   [104..127] lifecycle region (24 B, see assets/qx-lifecycle.js), in RS(184,128) filling all 1472 ring bits.
+ *   The CRC-32 then covers [0..35] and [104..127]; the signature covers the tag "QX-HD/v9", the URL, [0..35] and [104..127].
+ * Without a lifecycle object the symbol is layout 8 and identical to before.
  */
+var QXL = null;  // assets/qx-lifecycle.js, loaded by the UI; layout 8 never needs it
 const QXPayloadV8 = {
   PROFILE: 0x80,
+  PROFILE_LC: 0x90,   // layout 9: layout 8 plus the lifecycle region
+  LC_BYTES: 24,
   F_GPS: 0x01,
   F_PACKED: 0x02,
   F_SIGNED: 0x04,
@@ -1267,13 +1294,14 @@ const QXPayloadV8 = {
   // The ID is the /e/<ID>/ segment of a QX URL; null for any other URL
   idFromUrl: urlStr => (urlStr.match(/\/e\/([0-9A-HJKMNP-TV-Z]{8})\//) || [])[1] || null,
 
-  buildCore({ unixSec, gps, urlStr, metaStr, signed = false, type = 0, digestHex = null, safety = false }) {
+  buildCore({ unixSec, gps, urlStr, metaStr, signed = false, type = 0, digestHex = null, safety = false, lc = null }) {
+    if (lc && lc.length !== this.LC_BYTES) throw new Error(`Lifecycle region must be ${this.LC_BYTES} bytes`);
     const meta = this.encodeMeta(metaStr);
     if (!meta.ok) throw new Error("Serial exceeds 14 bytes");  // callers validate first; never truncate
     const entityId = this.idFromUrl(urlStr);
     const flags = (gps ? this.F_GPS : 0) | (meta.packed ? this.F_PACKED : 0) | (signed ? this.F_SIGNED : 0) | (safety ? this.F_SAFETY : 0);
     return [
-      this.PROFILE | flags,
+      (lc ? this.PROFILE_LC : this.PROFILE) | flags,
       (type << 5) | (entityId ? 1 : 0) | (digestHex ? 2 : 0),
       ...this.u32(unixSec),
       ...(gps ? this.encodeGps(gps.lat, gps.lon) : [0, 0, 0, 0, 0, 0]),
@@ -1283,14 +1311,15 @@ const QXPayloadV8 = {
     ];
   },
 
-  // Core + CRC-32 (40 bytes)
-  seal(core36) {
-    return [...core36, ...this.u32(GF256.crc32(core36))];
+  // Core + CRC-32 (40 bytes). The CRC also covers the lifecycle region when there is one.
+  seal(core36, lc = []) {
+    return [...core36, ...this.u32(GF256.crc32([...core36, ...lc]))];
   },
 
-  // Unsigned data block: the sealed core and an all-zero signature field
+  // Unsigned data block: the sealed core, an all-zero signature field, then the lifecycle region if any
   build(fields) {
-    return [...this.seal(this.buildCore(fields)), ...new Array(64).fill(0)];
+    const lc = fields.lc || [];
+    return [...this.seal(this.buildCore(fields), lc), ...new Array(64).fill(0), ...lc];
   },
 
   parseKeyHex(hex) {
@@ -1305,9 +1334,9 @@ const QXPayloadV8 = {
 
   // Signs a domain tag, the length-prefixed QR URL and the 36-byte core, so the URL, time, GPS,
   // serial and flags (including the signed flag) can't be altered or swapped.
-  signingInput(core36, urlStr) {
+  signingInput(core36, urlStr, lc = []) {
     const url = this.utf8(urlStr);
-    return new Uint8Array([...this.utf8("QX-HD/v8"), url.length >> 8, url.length & 0xFF, ...url, ...core36]);
+    return new Uint8Array([...this.utf8(lc.length ? "QX-HD/v9" : "QX-HD/v8"), url.length >> 8, url.length & 0xFF, ...url, ...core36, ...lc]);
   },
 
   async keysFromSeed(seed) {
@@ -1319,27 +1348,40 @@ const QXPayloadV8 = {
 
   async buildSigned(fields, seed) {
     const core36 = this.buildCore({ ...fields, signed: true });
+    const lc = fields.lc || [];
     const { sign } = await this.keysFromSeed(seed);
-    const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", sign, this.signingInput(core36, fields.urlStr)));
-    return [...this.seal(core36), ...sig];
+    const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", sign, this.signingInput(core36, fields.urlStr, lc)));
+    return [...this.seal(core36, lc), ...sig, ...lc];
   },
 
-  // Check the signature on a decoded 104-byte data block (the CRC-32 is checked by the RS/CRC decode)
-  async verify(data104, urlStr, seed) {
+  // Check the signature on a decoded data block, 104 bytes (v8) or 128 (v9, lifecycle region included).
+  // The CRC-32 is checked by the RS/CRC decode.
+  async verify(data, urlStr, seed) {
     const { verify } = await this.keysFromSeed(seed);
-    return crypto.subtle.verify("Ed25519", verify, new Uint8Array(data104.slice(40, 104)), this.signingInput(data104.slice(0, 36), urlStr));
+    return crypto.subtle.verify("Ed25519", verify, new Uint8Array(data.slice(40, 104)), this.signingInput(data.slice(0, 36), urlStr, data.slice(104)));
   },
 
   // Reader-side trust: a signature counts only if its public key is on the reader's trust list.
   // Returns the matching issuer's name, or null when no trusted key verifies the block.
-  async verifyTrusted(data104, urlStr, trustList) {
-    const msg = this.signingInput(data104.slice(0, 36), urlStr);
-    const sig = new Uint8Array(data104.slice(40, 104));
+  async verifyTrusted(data, urlStr, trustList) {
+    const msg = this.signingInput(data.slice(0, 36), urlStr, data.slice(104));
+    const sig = new Uint8Array(data.slice(40, 104));
     for (const issuer of trustList) {
       const pub = await crypto.subtle.importKey("raw", new Uint8Array(issuer.publicKeyHex.match(/../g).map(h => parseInt(h, 16))), { name: "Ed25519" }, false, ["verify"]);
       if (await crypto.subtle.verify("Ed25519", pub, sig, msg)) return issuer.name;
     }
     return null;
+  },
+
+  // How far a reader can trust the lifecycle records of a decoded symbol, kept apart from the symbol's own validity:
+  //   "authenticated"   signed, and a key on the trust list verifies it (issuer is named)
+  //   "invalid"         signed, but no trusted key verifies it: altered, stripped, or from an unknown issuer
+  //   "unauthenticated" not signed: the claim is the label printer's, nobody vouches for it
+  // A valid signature shows who issued the claim, not that the claim is true.
+  async lifecycleAuth(dec, urlStr, trustList) {
+    if (!dec.signed) return { state: "unauthenticated", issuer: null };
+    const issuer = await this.verifyTrusted(dec.data, urlStr, trustList);
+    return issuer ? { state: "authenticated", issuer } : { state: "invalid", issuer: null };
   },
 
   // Assumes the codeword already passed RS + CRC-32
@@ -1352,7 +1394,10 @@ const QXPayloadV8 = {
     return {
       layout: cw[0] >> 4,
       signed,
-      data: cw.slice(0, 104),
+      data: cw.slice(0, cw[0] >> 4 === 9 ? 128 : 104),
+      lcBytes: cw[0] >> 4 === 9 ? cw.slice(104, 128) : null,
+      // decoded by assets/qx-lifecycle.js; null for layout 8 or before that module has loaded
+      lifecycle: cw[0] >> 4 === 9 && QXL ? QXL.decodeLifecycleObject(cw.slice(104, 128)) : null,
       type: this.TYPES[cw[1] >> 5] || null,
       safety: !!(flags & this.F_SAFETY),
       entityId,
@@ -1391,22 +1436,25 @@ class QXChronoEngine {
     });
   }
 
+  // A 104-byte payload is layout 8, RS(152,104). A 128-byte one (lifecycle) is layout 9, RS(184,128):
+  // 184 bytes is exactly the 1472 ring bits, so v9 uses the cells v8 leaves blank and corrects 28 bytes.
   encodePolarState(urlStr, payload) {
-    const logical = [...payload, ...GF256.rsEncode(payload, this.parityBytes)];
+    const k = payload.length, n = k === 128 ? 184 : this.numBytes;
+    const logical = [...payload, ...GF256.rsEncode(payload, n - k)];
 
     // ponytail: one RS block, so this stride only scatters bytes visually; it adds no correction power.
     // Real burst protection would need several RS blocks interleaved.
-    const physical = new Array(this.numBytes).fill(0);
-    for (let i = 0; i < this.numBytes; i++) {
-      physical[(this.stride * i + this.offset) % this.numBytes] = logical[i];
+    const physical = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      physical[(this.stride * i + this.offset) % n] = logical[i];
     }
 
     // Decode what a reader would see: damaged physical bytes -> de-interleave -> RS -> CRC-32
     const rxPhysical = [...physical];
     for (const p of this.scratchedClusters) {
-      if (p < this.numBytes) rxPhysical[p] ^= 0xFF;
+      if (p < n) rxPhysical[p] ^= 0xFF;
     }
-    const rxLogical = logical.map((_, i) => rxPhysical[(this.stride * i + this.offset) % this.numBytes]);
+    const rxLogical = logical.map((_, i) => rxPhysical[(this.stride * i + this.offset) % n]);
     const decode = this.decodePolar(rxLogical, urlStr);
 
     // Bits go around the rings in order, inner ring first: physical byte p fills flat bits 8p..8p+7.
@@ -1417,26 +1465,37 @@ class QXChronoEngine {
     this.dataSectors.forEach((sectors, r) => {
       for (let s = 0; s < sectors; s++, flat++) {
         const p = flat >> 3;
-        if (p >= this.numBytes) continue;
+        if (p >= n) continue;
         dataRings[r][s] = (physical[p] >> (7 - (flat & 7))) & 1;
         cellToCluster[`${r}_${s}`] = p;
       }
     });
 
-    return { logical, physical, decode, dataRings, cellToCluster };
+    return { logical, physical, decode, dataRings, cellToCluster, n, k };
+  }
+
+  // Reads the ring bytes as a reader sees them: `physical` has one byte per ring slot (184; layout 8 leaves 152-183 blank).
+  // Tries layout 8 first, then layout 9. Each has its own CRC-32 and layout nibble, so a wrong guess is rejected.
+  decodeRings(physical, urlStr) {
+    for (const n of [this.numBytes, 184]) {
+      const r = this.decodePolar(Array.from({ length: n }, (_, i) => physical[(this.stride * i + this.offset) % n]), urlStr);
+      if (r.ok) return r;
+    }
+    return { ok: false };
   }
 
   decodePolar(rxLogical, urlStr, erasures = []) {
+    const n = rxLogical.length, parity = n === 184 ? 56 : this.parityBytes, k = n - parity;
     const crcOk = cw => {
-      const c = GF256.crc32(cw.slice(0, 36));
+      const c = GF256.crc32([...cw.slice(0, 36), ...cw.slice(104, k)]);  // layout 9 also covers its lifecycle region
       return cw[36] === (c >>> 24) && cw[37] === ((c >>> 16) & 0xFF) && cw[38] === ((c >>> 8) & 0xFF) && cw[39] === (c & 0xFF);
     };
     // Errors-only for now; a camera reader can pass low-confidence byte positions as erasures (up to 48)
-    let cw = GF256.rsDecode(rxLogical, this.parityBytes, erasures);
+    let cw = GF256.rsDecode(rxLogical, parity, erasures);
     if (cw && !crcOk(cw)) cw = null;  // beyond capacity RS can land on a wrong codeword; CRC-32 rejects it
     if (!cw) return { ok: false };
     // A valid codeword from a different payload layout must not be read with the v8 field map
-    if ((cw[0] >> 4) !== QXPayloadV8.PROFILE >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
+    if ((cw[0] >> 4) !== (n === 184 ? QXPayloadV8.PROFILE_LC : QXPayloadV8.PROFILE) >> 4) return { ok: false, unknownLayout: cw[0] >> 4 };
     return {
       ok: true,
       corrected: cw.filter((b, i) => b !== rxLogical[i]).length,
@@ -1677,6 +1736,14 @@ const ui = {
   qxType: document.getElementById("qx-type"),
   qxSafety: document.getElementById("qx-safety"),
   qxDigest: document.getElementById("qx-digest"),
+  qxLifecycle: document.getElementById("qx-lifecycle"),
+  qxLcDates: document.getElementById("qx-lc-dates"),
+  lcStatus: document.getElementById("lifecycle-status"),
+  lcPanel: document.getElementById("lifecycle-panel"),
+  lcRows: document.getElementById("lifecycle-rows"),
+  lcAuth: document.getElementById("lifecycle-auth"),
+  lcToday: document.getElementById("lc-today"),
+  lcSoon: document.getElementById("lc-soon"),
   digestStatus: document.getElementById("digest-status"),
   keyStatus: document.getElementById("key-status"),
   sigStatus: document.getElementById("sig-status"),
@@ -1744,16 +1811,31 @@ function readInputs() {
   if (digestHex && !/^[0-9a-fA-F]{10}$/.test(digestHex)) errors.digest = "Digest must be 10 hex characters (5 bytes)";
   const type = parseInt(ui.qxType.value, 10);
   const safety = ui.qxSafety.checked;
+  let lc = null;
+  const lcText = ui.qxLifecycle.value.trim();
+  if (lcText) {
+    try {
+      if (!QXL) throw new Error("Lifecycle module not loaded (serve the studio over http, not file://)");
+      const obj = QXL.createLifecycleObject();
+      for (const part of lcText.split(",").map(x => x.trim()).filter(Boolean)) {
+        const r = QXL.parseNotation(part);
+        if (!r) throw new Error(`Lifecycle: cannot read "${part}"`);
+        QXL.addLifecycleRecord(obj, r);
+      }
+      obj.dates = QXL.parseEventDates(ui.qxLcDates.value);
+      lc = QXL.encodeLifecycleObject(obj);
+    } catch (e) { errors.lifecycle = e.message; }
+  }
   const k = QXPayloadV8.parseKeyHex(ui.issuerKey.value);
   if (k.err) errors.key = k.err;
   else if (k.key && !(window.crypto && crypto.subtle)) errors.key = "Signing needs HTTPS or localhost";
 
-  return { urlStr, metaStr, chronoStr, gps: gps.value || null, meta, urlBytes, key: k.key || null, unixSec: ts.unixSec, type, safety, digestHex: digestHex || null, urlWarn, errors };
+  return { urlStr, metaStr, chronoStr, gps: gps.value || null, meta, urlBytes, key: k.key || null, unixSec: ts.unixSec, type, safety, digestHex: digestHex || null, lc, urlWarn, errors };
 }
 
 // Signed when an issuer key is present, otherwise the unsigned payload (bound by entity ID when the URL has one)
 async function buildPayload(inp) {
-  const fields = { unixSec: inp.unixSec, gps: inp.gps, urlStr: inp.urlStr, metaStr: inp.metaStr, type: inp.type, safety: inp.safety, digestHex: inp.digestHex };
+  const fields = { unixSec: inp.unixSec, gps: inp.gps, urlStr: inp.urlStr, metaStr: inp.metaStr, type: inp.type, safety: inp.safety, digestHex: inp.digestHex, lc: inp.lc };
   return inp.key ? QXPayloadV8.buildSigned(fields, inp.key) : QXPayloadV8.build(fields);
 }
 
@@ -1764,6 +1846,35 @@ function setTimestampNow() {
   ui.chronoIso.value = now.toISOString().slice(0, 19) + "Z";
 }
 setTimestampNow();
+
+// Reader view of the decoded lifecycle object. Text is set with textContent only.
+function showLifecycle(dec, sigOk, haveKey) {
+  const present = dec.ok && dec.lcBytes;
+  ui.lcPanel.hidden = !present;
+  ui.lcRows.replaceChildren();
+  if (!present) return;
+  const add = (cls, ...cells) => {
+    const row = document.createElement("div");
+    row.className = cls;
+    cells.forEach(c => { const sp = document.createElement("span"); sp.textContent = c; row.append(sp); });
+    ui.lcRows.append(row);
+  };
+  const auth = !dec.signed ? "UNAUTHENTICATED (unsigned)"
+    : sigOk === true ? "AUTHENTICATED (issuer signature verified)"
+    : haveKey ? "INVALID (signature does not match)" : "UNAUTHENTICATED (signed; enter the issuer key to verify)";
+  ui.lcAuth.textContent = auth;
+  ui.lcAuth.style.color = auth.startsWith("INVALID") ? "var(--danger)" : "";
+  const lc = dec.lifecycle && dec.lifecycle.lifecycle;
+  if (!lc) { add("status-pill status-fail", "Lifecycle data present but unreadable", (dec.lifecycle?.errors[0]) || "reader module not loaded"); return; }
+  const today = ui.lcToday.value, soonDays = Math.max(0, parseInt(ui.lcSoon.value, 10) || 0);
+  if (QXL.dayNumber(today) === null) { add("status-pill status-warn", "Reader date needed", "statuses depend on today's date"); return; }
+  for (const r of QXL.evaluateLifecycle(lc, today, { soonDays })) {
+    const detail = r.pending ? `waiting for ${r.pending === "unspecified" ? "a reference event" : QXL.EVENT_NAMES[r.pending] + " date"}`
+      : r.end ? `until ${r.end}${r.daysLeft >= 0 ? ` (${r.daysLeft} d left)` : ""}` : "";
+    const cls = r.status === "active" ? "status-ok" : r.status === "expired" || r.status === "unknown" ? "status-fail" : "status-warn";
+    add(`status-pill ${cls}`, `${r.name}: ${r.value}`, `${r.label}${detail ? ", " + detail : ""}`);
+  }
+}
 
 let renderSeq = 0;
 let stripNote = null;  // { url, text } from the last Strip Tracking click
@@ -1784,6 +1895,7 @@ async function renderApp() {
   if (errors.ts) setVal(ui.chronoEpochVal, errors.ts, true);
   setVal(ui.keyStatus, errors.key || (key ? "Signing (Ed25519)" : "Unsigned"), !!errors.key);
   setVal(ui.digestStatus, errors.digest || (inp.digestHex ? "Included" : "Not included"), !!errors.digest);
+  setVal(ui.lcStatus, errors.lifecycle || (inp.lc ? "Included (payload v9)" : "Not included"), !!errors.lifecycle);
 
   // Invalid input: say so and keep the last valid drawing; never encode a guessed or truncated value
   const errList = Object.values(errors);
@@ -1794,6 +1906,7 @@ async function renderApp() {
     // Don't leave results from the last valid render on screen
     ui.sigStatus.className = ui.gpsStatus.className = "status-pill status-warn";
     ui.sigStatusText.textContent = ui.decodedGps.textContent = "—";
+    ui.lcPanel.hidden = true;
     return;
   }
 
@@ -1855,7 +1968,7 @@ async function renderApp() {
 
   // Polar status comes from actually decoding the (possibly scratched) bytes, not from the encoder's state
   const dec = polarState.decode;
-  ui.statBudget.textContent = dec.ok ? `${dec.corrected} / 24` : "FAILED";
+  ui.statBudget.textContent = dec.ok ? `${dec.corrected} / ${(polarState.n - polarState.k) / 2}` : "FAILED";
 
   // GPS round-trips within one quantization step
   const gpsMatch = dec.ok && (gps
@@ -1886,6 +1999,7 @@ async function renderApp() {
     ui.sigStatus.className = `status-pill ${sigOk ? "status-ok" : "status-fail"}`;
     ui.sigStatusText.textContent = sigOk ? "ED25519 VERIFIED" : (key ? "SIGNATURE INVALID" : "SIGNED (NO KEY TO VERIFY)");
   }
+  showLifecycle(dec, sigOk, !!key);
   const bound = dec.signed ? sigOk === true : dec.urlMatch === true;
   // Unsigned symbols on a URL with no /e/<ID>/ path have nothing to bind the URL to
   const unbound = dec.ok && !dec.signed && dec.urlMatch === null;
@@ -1893,14 +2007,14 @@ async function renderApp() {
   if (dec.ok && dec.meta === metaStr && bound && gpsMatch) {
     ui.polarStatus.className = "status-pill status-ok";
     ui.polarStatusText.textContent = dec.corrected === 0
-      ? "152/152 BYTES INTACT"
+      ? `${polarState.n}/${polarState.n} BYTES INTACT`
       : `RECOVERED (${dec.corrected}B CORRECTED)`;
     ui.crcBadge.textContent = dec.signed ? "ED25519 + CRC VALID" : "CRC-32 + CRC-8 VALID";
   } else {
     ui.polarStatus.className = "status-pill status-fail";
     ui.polarStatusText.textContent = unbound ? "UNSIGNED: URL NOT BOUND (NO /e/ID/)" : dec.ok ? "DECODED BUT MISMATCH"
       : dec.unknownLayout !== undefined ? `UNKNOWN PAYLOAD LAYOUT v${dec.unknownLayout}`
-      : "DECODE FAILED (>24 BAD BYTES)";
+      : `DECODE FAILED (>${(polarState.n - polarState.k) / 2} BAD BYTES)`;
     ui.crcBadge.textContent = "DECODE HALTED";
   }
 
@@ -1909,15 +2023,15 @@ async function renderApp() {
   ui.decodedTimeDisplay.textContent = `${decodedChrono.isoText} [${decodedChrono.valid ? "CRC8 OK" : "ERR"}${polarTs}]`;
 
   ui.codewordDump.innerHTML = polarState.logical.map((b, i) => {
-    const p = (chronoEngine.stride * i + chronoEngine.offset) % chronoEngine.numBytes;
+    const p = (chronoEngine.stride * i + chronoEngine.offset) % polarState.n;
     const isScratched = chronoEngine.scratchedClusters.has(p);
-    const isParity = i >= chronoEngine.payloadBytes;
+    const isParity = i >= polarState.k;
     const cls = ["byte-chip", isParity ? "parity" : "", isScratched ? "scratched" : ""].join(" ");
     return `<span class="${cls}" title="Logical B${i} -> Physical P${p}">${b.toString(16).toUpperCase().padStart(2, "0")}</span>`;
   }).join("");
 }
 
-[ui.qrUrl, ui.qxMeta, ui.chronoIso, ui.gpsCoords, ui.issuerKey, ui.qxType, ui.qxSafety, ui.qxDigest, ui.dotScale, ui.chkColorChrono, ui.chkEmblem, ui.chkGuides].forEach(el => {
+[ui.qrUrl, ui.qxMeta, ui.chronoIso, ui.gpsCoords, ui.issuerKey, ui.qxType, ui.qxSafety, ui.qxDigest, ui.qxLifecycle, ui.qxLcDates, ui.lcToday, ui.lcSoon, ui.dotScale, ui.chkColorChrono, ui.chkEmblem, ui.chkGuides].forEach(el => {
   el.addEventListener("input", renderApp);
 });
 
@@ -2187,6 +2301,9 @@ async function runSignatureSelfTest(trials = 100) {
   return tally;
 }
 
+{ const n = new Date();  // the reader's own calendar day; the lifecycle module never reads the clock itself
+  ui.lcToday.value = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`; }
+import("/assets/qx-lifecycle.js").then(m => { QXL = m; renderApp(); }, () => {});
 renderApp();
 
 // Landing: static sample symbols (violet time marks), separate from the studio's inputs
