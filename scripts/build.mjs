@@ -16,7 +16,8 @@ export const TYPES = {
   business: { label: "Business", noun: "business", indexable: true,  ld: "LocalBusiness", facts: "Hours and details",   order: ["sections", "facts", "faqs"] },
   person:   { label: "Person",   noun: "person",   indexable: false, ld: "Person",        facts: "Details",             order: ["sections", "facts", "faqs"] },
   machine:  { label: "Machine",  noun: "machine",  indexable: false, ld: "Product",       facts: "Machine details",     order: ["safety", "facts", "sections", "documents", "faqs"] },
-  asset:    { label: "Asset",    noun: "asset",    indexable: false, ld: "Thing",         facts: "Asset details",       order: ["facts", "records", "sections", "faqs"] }
+  asset:    { label: "Asset",    noun: "asset",    indexable: false, ld: "Thing",         facts: "Asset details",       order: ["facts", "records", "sections", "faqs"] },
+  services: { label: "Services", noun: "service",  indexable: true,  ld: "Service",       facts: "Service details",     order: ["sections", "facts", "faqs"] }
 };
 const ALLOWED_KEYS = new Set(["id", "type", "title", "subtitle", "summary", "badges", "brand", "model", "facts", "sections", "documents", "faqs", "records", "actions", "updated", "indexable"]);
 const SECTION_KINDS = new Set(["text", "list", "steps", "callout", "table"]);
@@ -170,6 +171,7 @@ function jsonLd(e) {
     const serial = fact(e, /^serial/i); if (serial) ld.serialNumber = serial;
   }
   if (e.type === "business") { if (tel) ld.telephone = tel; const a = fact(e, /address/i); if (a) ld.address = a; }
+  if (e.type === "services") { const a = fact(e, /area/i); if (a) ld.areaServed = a; }
   if (e.type === "person") { const r = fact(e, /^role$/i); if (r) ld.jobTitle = r; }
   return ld;
 }

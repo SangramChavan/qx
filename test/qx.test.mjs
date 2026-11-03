@@ -206,6 +206,27 @@ test("llms.txt lists indexable items with their data links, and leaves out priva
   assert.ok(txt.startsWith("# QX\n"));
 });
 
+const services = () => ({
+  id: "S7V3N9ZR", type: "services", title: "Quick Fix Plumbing", subtitle: "Home repairs across Pune (demo service)",
+  summary: "Emergency and scheduled plumbing repairs for homes and small offices. This is a demonstration page showing how a QX opens a service.",
+  facts: [{ label: "Service area", value: "Pune and nearby suburbs" }, { label: "Response time", value: "Within 4 hours" }],
+  sections: [{ title: "What is included", kind: "list", items: ["Leak repair", "Tap and fixture fitting"] }],
+  faqs: [{ q: "Do you work on weekends?", a: "Yes, from 9:00 to 17:00." }],
+  actions: [{ kind: "call", label: "Call us", href: "tel:+15550100400" }], updated: "2026-11-03"
+});
+
+test("services pages validate, render, are indexed and carry Service data", () => {
+  assert.deepEqual(validateEntity(services(), "t.json"), []);
+  const html = renderEntity(services());
+  assert.ok(html.includes('class="t-services"') && html.includes("Ask about this service"));
+  assert.ok(!html.includes('name="robots" content="noindex"'), "services pages are indexed like businesses");
+  assert.ok(html.includes('"@type":"Service"') && html.includes('"areaServed":"Pune and nearby suburbs"'));
+  const demos = Object.values(ID).map(id => ({ file: `${id}.json`, data: load(id) }));
+  const { files, errors } = planEntries([...demos, { file: "S7V3N9ZR.json", data: services() }]);
+  assert.deepEqual(errors, []);
+  assert.ok(files["sitemap.xml"].includes("S7V3N9ZR") && files["llms.txt"].includes("S7V3N9ZR/entity.json"));
+});
+
 test("person pages ship a vCard", () => {
   const { files } = plan();
   const v = files[`e/${ID.person}/contact.vcf`];

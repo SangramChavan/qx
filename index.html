@@ -335,7 +335,7 @@
       <div>
         <span class="badge badge-chrono">OPEN SOURCE &middot; MIT &middot; DRAFT SPEC v2.5</span>
         <h1 style="margin-top:12px;">A universal visual language for identity, authentication and AI-readable provenance.</h1>
-        <p class="lede">QX is a round code any phone camera can open, with no app or sign-up. Its permanent address leads to a page that says what it identifies: a product, business, person, machine or asset. An issuer can sign the code with Ed25519 to show who issued it. Rings around the core record the time, an optional GPS position and a serial number that survive scratches, and each page publishes its record as JSON that software and AI agents can read.</p>
+        <p class="lede">QX is a round code any phone camera can open, with no app or sign-up. Its permanent address leads to a page that says what it identifies: a product, business, service, person, machine or asset. An issuer can sign the code with Ed25519 to show who issued it. Rings around the core record the time, an optional GPS position and a serial number that survive scratches, and each page publishes its record as JSON that software and AI agents can read.</p>
         <div class="cta-row">
           <a class="cta primary" href="#demos">Scan a demo</a>
           <a class="cta" href="#studio">Open the studio</a>
@@ -460,6 +460,7 @@
           <option value="2">Person</option>
           <option value="3">Machine</option>
           <option value="4">Asset</option>
+          <option value="5">Services</option>
         </select>
       </div>
       <div class="toggle-row">
@@ -1190,7 +1191,7 @@ const QXPayloadV8 = {
   PACKED_MAX_CHARS: 17,
   CORE_BYTES: 36,   // before the CRC-32
   DATA_BYTES: 104,  // core + CRC-32 + signature
-  TYPES: ["product", "business", "person", "machine", "asset"],
+  TYPES: ["product", "business", "person", "machine", "asset", "services"],
   ID_ALPHABET: "0123456789ABCDEFGHJKMNPQRSTVWXYZ",  // Crockford base32, as in scripts/build.mjs
   B64: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
   GPS_STEP_LAT: 180 / 0xFFFFFF,  // ~1.2 m

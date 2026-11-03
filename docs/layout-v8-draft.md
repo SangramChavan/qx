@@ -14,7 +14,7 @@ Ed25519 signature.
 | Offset | Bytes | Field | Notes |
 |---|---|---|---|
 | 0 | 1 | Layout (high nibble = 8) and flags (low nibble) | GPS, packed serial, signed, safety notice |
-| 1 | 1 | Entity type (3 bits) and reserved (5 bits) | product, business, person, machine, asset |
+| 1 | 1 | Entity type (3 bits) and reserved (5 bits) | product, business, person, machine, asset, services (values 6-7 reserved) |
 | 2 | 4 | Unix seconds | as v7 |
 | 6 | 6 | GPS (optional) | as v7 |
 | 12 | 5 | Entity ID | 8 Crockford characters (5 bits each) packed into 40 bits |
